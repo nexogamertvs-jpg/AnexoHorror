@@ -1,0 +1,11 @@
+{
+  "crack":     { "sounds": [ "anexohorror:crack" ] },
+  "whisper":   { "sounds": [ "anexohorror:whisper1", "anexohorror:whisper2", "anexohorror:whisper3" ] },
+  "breath":    { "sounds": [ "anexohorror:breath1", "anexohorror:breath2" ] },
+  "knock":     { "sounds": [ "anexohorror:knock1", "anexohorror:knock2" ] },
+  "drone":     { "sounds": [ "anexohorror:drone1", "anexohorror:drone2" ] },
+  "static":    { "sounds": [ "anexohorror:static1" ] },
+  "heartbeat": { "sounds": [ "anexohorror:heartbeat1" ] },
+  "creak":     { "sounds": [ "anexohorror:creak1" ] },
+  "scrape":    { "sounds": [ "anexohorror:scrape1" ] }
+}
