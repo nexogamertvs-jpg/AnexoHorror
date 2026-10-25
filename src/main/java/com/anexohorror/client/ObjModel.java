@@ -4,6 +4,7 @@ import com.anexohorror.AnexoHorror;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -23,19 +24,31 @@ public final class ObjModel {
     public final float cx;
     public final float cz;
 
-    private static ObjModel slender;
-    private static boolean failed;
+    private static ObjModel high;
+    private static ObjModel low;
+    private static boolean loaded;
 
-    public static ObjModel slender() {
-        if (slender == null && !failed) {
-            try {
-                slender = load(new ResourceLocation(AnexoHorror.MODID, "obj/slender.obj"));
-            } catch (Exception e) {
-                failed = true;
-                LogUtils.getLogger().error("AnexoHorror: no se pudo cargar obj/slender.obj", e);
-            }
+    /** Se llama al cargar/recargar recursos (evita el tiron al aparecer por primera vez). */
+    public static void reload(ResourceManager rm) {
+        high = tryLoad(rm, "obj/slender.obj");
+        low = tryLoad(rm, "obj/slender_lod.obj");
+        if (low == null) low = high;
+        loaded = true;
+    }
+
+    /** far = true devuelve la version de pocos poligonos para distancias largas. */
+    public static ObjModel slender(boolean far) {
+        if (!loaded) reload(Minecraft.getInstance().getResourceManager());
+        return far && low != null ? low : high;
+    }
+
+    private static ObjModel tryLoad(ResourceManager rm, String path) {
+        try {
+            return load(rm, new ResourceLocation(AnexoHorror.MODID, path));
+        } catch (Exception e) {
+            LogUtils.getLogger().error("AnexoHorror: no se pudo cargar " + path, e);
+            return null;
         }
-        return slender;
     }
 
     private ObjModel(float[] pos, float[] uv, float[] nrm, int[] idx) {
@@ -56,12 +69,12 @@ public final class ObjModel {
         this.cz = (minZ + maxZ) * 0.5F;
     }
 
-    private static ObjModel load(ResourceLocation rl) throws Exception {
+    private static ObjModel load(ResourceManager rm, ResourceLocation rl) throws Exception {
         List<float[]> v = new ArrayList<>();
         List<float[]> vt = new ArrayList<>();
         List<float[]> vn = new ArrayList<>();
         List<int[]> faces = new ArrayList<>();
-        try (InputStream in = Minecraft.getInstance().getResourceManager().open(rl);
+        try (InputStream in = rm.open(rl);
              BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
             String line;
             while ((line = br.readLine()) != null) {

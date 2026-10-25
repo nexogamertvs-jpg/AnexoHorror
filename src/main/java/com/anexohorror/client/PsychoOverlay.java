@@ -33,7 +33,7 @@ public final class PsychoOverlay {
         g.fill(0, 0, w, h, argb((int) (70 * k), 0x3A, 0x28, 0x30));
 
         // 2) Vineta que se cierra.
-        int layers = 14;
+        int layers = 10;
         int bw = Math.max(2, w / 60);
         int bh = Math.max(2, h / 60);
         for (int i = 0; i < layers; i++) {
@@ -47,10 +47,10 @@ public final class PsychoOverlay {
 
         // 3) Lineas de escaneo.
         int scan = argb((int) (38 * k), 0, 0, 0);
-        for (int y = 0; y < h; y += 4) g.fill(0, y, w, y + 1, scan);
+        for (int y = 0; y < h; y += 6) g.fill(0, y, w, y + 1, scan);
 
         // 4) Grano.
-        int grains = (int) (30 + 70 * k);
+        int grains = (int) (20 + 40 * k);
         for (int i = 0; i < grains; i++) {
             int x = RNG.nextInt(w);
             int y = RNG.nextInt(h);

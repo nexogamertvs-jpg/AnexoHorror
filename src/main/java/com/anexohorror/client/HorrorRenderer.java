@@ -75,11 +75,13 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
 
     /** Modelo 3D (.obj): animacion por codigo, a "fotogramas" para que parezca cinta danada. */
     private void renderModel(HorrorEntity e, float pt, PoseStack ps, MultiBufferSource buf, int packedLight) {
-        ObjModel m = ObjModel.slender();
-        if (m == null) return;
         Vec3 cam = this.entityRenderDispatcher.camera.getPosition();
         double ex = Mth.lerp(pt, e.xo, e.getX());
         double ez = Mth.lerp(pt, e.zo, e.getZ());
+        double cdx = cam.x - ex;
+        double cdz = cam.z - ez;
+        ObjModel m = ObjModel.slender(cdx * cdx + cdz * cdz > 22.0D * 22.0D);
+        if (m == null) return;
         // El frente del modelo es +X: lo giramos hacia la camara.
         float ang = (float) Mth.atan2(-(cam.z - ez), cam.x - ex);
 
@@ -116,8 +118,15 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
                 ? RenderType.entityCutoutNoCull(e.getVariant().texture)
                 : RenderType.entityTranslucent(e.getVariant().texture));
         PoseStack.Pose pose = ps.last();
-        Matrix4f mat = pose.pose();
+        Matrix4f mt = pose.pose();
         Matrix3f nm = pose.normal();
+        float a00 = mt.m00(), a01 = mt.m01(), a02 = mt.m02();
+        float a10 = mt.m10(), a11 = mt.m11(), a12 = mt.m12();
+        float a20 = mt.m20(), a21 = mt.m21(), a22 = mt.m22();
+        float a30 = mt.m30(), a31 = mt.m31(), a32 = mt.m32();
+        float n00 = nm.m00(), n01 = nm.m01(), n02 = nm.m02();
+        float n10 = nm.m10(), n11 = nm.m11(), n12 = nm.m12();
+        float n20 = nm.m20(), n21 = nm.m21(), n22 = nm.m22();
         int a = (int) (alpha * 255.0F);
         float[] pos = m.pos;
         float[] uv = m.uv;
@@ -125,12 +134,22 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
         int[] idx = m.idx;
         for (int i = 0; i < idx.length; i++) {
             int v = idx[i];
-            vc.vertex(mat, pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2])
+            float x = pos[v * 3];
+            float y = pos[v * 3 + 1];
+            float z = pos[v * 3 + 2];
+            float nx = nrm[v * 3];
+            float ny = nrm[v * 3 + 1];
+            float nz = nrm[v * 3 + 2];
+            vc.vertex(a00 * x + a10 * y + a20 * z + a30,
+                            a01 * x + a11 * y + a21 * z + a31,
+                            a02 * x + a12 * y + a22 * z + a32)
                     .color(255, 255, 255, a)
                     .uv(uv[v * 2], uv[v * 2 + 1])
                     .overlayCoords(OverlayTexture.NO_OVERLAY)
                     .uv2(light)
-                    .normal(nm, nrm[v * 3], nrm[v * 3 + 1], nrm[v * 3 + 2])
+                    .normal(n00 * nx + n10 * ny + n20 * nz,
+                            n01 * nx + n11 * ny + n21 * nz,
+                            n02 * nx + n12 * ny + n22 * nz)
                     .endVertex();
         }
         ps.popPose();
