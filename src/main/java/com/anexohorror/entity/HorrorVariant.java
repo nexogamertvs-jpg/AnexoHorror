@@ -3,14 +3,14 @@ package com.anexohorror.entity;
 import com.anexohorror.AnexoHorror;
 import net.minecraft.resources.ResourceLocation;
 
-/** Las presencias: seis planos 2D (imagenes originales) y un modelo 3D (.obj). */
+/** Las presencias: seis planos 2D (imagenes recortadas, sin fondo) y un modelo 3D (.obj). Los nombres de variante se conservan por compatibilidad. */
 public enum HorrorVariant {
-    PEEKER("peeker", 94, 100, 1.00F, 1.15F),    // cara asomada
-    GRIN("grin", 221, 136, 0.90F, 1.10F),       // sonrisa brillante
-    SMILER("smiler", 163, 252, 2.50F, 0.00F),   // figura palida de cuello largo
-    DRAWN("drawn", 212, 252, 2.30F, 0.00F),     // sonrisa dibujada
-    CRAWLER("crawler", 241, 439, 1.90F, 0.00F), // criatura de pasillo
-    EYE("eye", 199, 213, 1.00F, 1.20F),         // ojo en la oscuridad
+    PEEKER("peeker", 172, 448, 2.90F, 0.00F),   // figura negra alta con mascara palida (se asoma por esquinas)
+    GRIN("grin", 279, 448, 2.40F, 0.00F),       // esqueletica de mandibula abierta (resalta en la oscuridad)
+    SMILER("smiler", 286, 448, 3.20F, 0.00F),   // muchos brazos y sombrero
+    DRAWN("drawn", 156, 448, 2.70F, 0.00F),     // hombre alto y encorvado
+    CRAWLER("crawler", 448, 441, 2.00F, 0.00F), // criatura con cuernos y garras
+    EYE("eye", 263, 448, 2.60F, 0.00F),         // gritador de espinas
     SLENDER("slender", 3.00F, 0.00F, 0.70F);    // modelo 3D: criatura de piernas largas sentada en su silla
 
     public final ResourceLocation texture;

@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.1.1.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.2.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -33,3 +33,9 @@ silencios y escalada nocturna.
 
 ## v1.1.1
 - Rendimiento: modelo 3D de 29k a 11k triangulos (LOD de 3.4k a mas de 22 bloques), transformacion sin asignaciones por vertice, precarga del modelo al cargar recursos (sin tiron al aparecer) y overlay mas ligero.
+
+## v1.2.0
+- Las seis presencias 2D se reemplazaron por nuevas imagenes, recortadas sin fondo (alpha limpio, sin halos):
+  peeker = figura negra con mascara, grin = esqueletica, smiler = muchos brazos con sombrero,
+  drawn = hombre alto encorvado, crawler = criatura con cuernos, eye = gritador de espinas. El modelo 3D `slender` se mantiene.
+- Originales en `originals/v1.2/`.

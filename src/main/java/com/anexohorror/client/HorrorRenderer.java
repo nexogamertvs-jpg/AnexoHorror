@@ -59,7 +59,7 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
             poseStack.mulPose(Axis.ZP.rotationDegrees((Math.floorMod(entity.getId(), 5) - 2) * 3.0F));
         }
 
-        int light = LightTexture.pack(Math.max(LightTexture.block(packedLight), 5), LightTexture.sky(packedLight));
+        int light = LightTexture.pack(Math.max(LightTexture.block(packedLight), 8), LightTexture.sky(packedLight));
         VertexConsumer vc = buffer.getBuffer(RenderType.entityTranslucent(v.texture));
         PoseStack.Pose pose = poseStack.last();
         Matrix4f m = pose.pose();
