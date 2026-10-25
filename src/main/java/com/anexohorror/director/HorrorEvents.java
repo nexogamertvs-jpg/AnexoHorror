@@ -31,13 +31,13 @@ import java.util.function.Predicate;
 /** Ejecucion de cada tipo de evento. Devuelve false si no hubo lugar valido (el director prueba otro). */
 public final class HorrorEvents {
 
-    // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE
-    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0};
-    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5};
-    private static final double[] W_PEEK = {4.0, 2.0, 1.0, 1.0, 1.5, 2.0};
-    private static final double[] W_DOOR = {3.0, 2.0, 1.0, 0.5, 1.0, 2.0};
-    private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0};
-    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0};
+    // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, SLENDER
+    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 2.0};
+    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 1.5};
+    private static final double[] W_PEEK = {4.0, 2.0, 1.0, 1.0, 1.5, 2.0, 2.5};
+    private static final double[] W_DOOR = {3.0, 2.0, 1.0, 0.5, 1.0, 2.0, 1.5};
+    private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0};
+    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 2.0};
 
     private static final HorrorVariant[] VARIANTS = HorrorVariant.values();
 
