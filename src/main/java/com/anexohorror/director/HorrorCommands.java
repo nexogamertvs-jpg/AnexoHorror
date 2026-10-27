@@ -98,9 +98,8 @@ public final class HorrorCommands {
         try {
             ServerPlayer p = src.getPlayerOrException();
             PlayerState st = HorrorDirector.stateFor(p);
-            String msg = String.format("miedo=%.2f audacia=%.2f nerviosismo=%.2f encuentros=%d archivo=%d proximoEvento=%ds noche=%.2f",
-                    st.fear, st.bold, st.jumpy, st.successfulEncounters, st.archiveIndex, st.cooldown / 20,
-                    PlayerState.nightFactor(p.serverLevel()));
+            String msg = String.format("miedo=%.2f audaz=%.2f asustadizo=%.2f proximoEvento=%ds noche=%.2f",
+                    st.fear, st.bold, st.jumpy, st.cooldown / 20, PlayerState.nightFactor(p.serverLevel()));
             src.sendSuccess(() -> Component.literal(msg), false);
             return 1;
         } catch (Exception ex) {

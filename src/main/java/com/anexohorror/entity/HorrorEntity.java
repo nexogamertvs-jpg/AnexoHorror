@@ -5,8 +5,6 @@ import com.anexohorror.director.HorrorUtil;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.world.entity.player.Player;
-import java.util.Optional;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
@@ -31,8 +29,6 @@ public class HorrorEntity extends Mob {
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> DATA_SCALE =
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
-    private static final EntityDataAccessor<Optional<UUID>> DATA_OWNER =
-            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.OPTIONAL_UUID);
 
     // Estado solo de servidor (la entidad no se guarda en disco: noSave()).
     private UUID ownerId;
@@ -64,13 +60,11 @@ public class HorrorEntity extends Mob {
         this.entityData.define(DATA_VARIANT, 0);
         this.entityData.define(DATA_MODE, 0);
         this.entityData.define(DATA_SCALE, 1.0F);
-        this.entityData.define(DATA_OWNER, Optional.empty());
     }
 
     public void setup(UUID owner, HorrorVariant variant, HorrorMode mode, float scale,
                       int maxLife, int stareLimit, int grace, int glimpseDelay, double vanishDist, int chainLeft) {
         this.ownerId = owner;
-        this.entityData.set(DATA_OWNER, Optional.of(owner));
         this.entityData.set(DATA_VARIANT, variant.ordinal());
         this.entityData.set(DATA_MODE, mode.ordinal());
         this.entityData.set(DATA_SCALE, scale);
@@ -85,14 +79,7 @@ public class HorrorEntity extends Mob {
     public HorrorVariant getVariant() { return HorrorVariant.byId(this.entityData.get(DATA_VARIANT)); }
     public HorrorMode getMode() { return HorrorMode.byId(this.entityData.get(DATA_MODE)); }
     public float getVisualScale() { return this.entityData.get(DATA_SCALE); }
-    public UUID getOwnerId() { return this.entityData.get(DATA_OWNER).orElse(ownerId); }
-
-    /** Las apariciones de un evento personal solo son visibles para su jugador objetivo. */
-    @Override
-    public boolean isInvisibleTo(Player player) {
-        UUID owner = getOwnerId();
-        return (owner != null && !owner.equals(player.getUUID())) || super.isInvisibleTo(player);
-    }
+    public UUID getOwnerId() { return ownerId; }
     public void setAllowDay(boolean allow) { this.allowDay = allow; }
     public int getChainLeft() { return chainLeft; }
     public boolean wasSeen() { return hasBeenSeen; }

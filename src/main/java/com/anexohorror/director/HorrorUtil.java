@@ -32,7 +32,7 @@ public final class HorrorUtil {
     }
 
     public static boolean entitiesAllowed(ServerLevel l) {
-        return forceDay || isNightTime(l) || com.anexohorror.HorrorConfig.DAYTIME_PRESENCES.get();
+        return forceDay || isNightTime(l);
     }
 
     /** Celda de aire de 2 de alto, sin liquido y con suelo solido debajo. */

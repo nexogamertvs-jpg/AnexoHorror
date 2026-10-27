@@ -56,54 +56,5 @@
         "stream": true
       }
     ]
-  },
-  "anomaly_tone": {
-    "sounds": [
-      {
-        "name": "anexohorror:anomaly_tone",
-        "volume": 0.7
-      }
-    ]
-  },
-  "creature_call": {
-    "sounds": [
-      {
-        "name": "anexohorror:creature_call",
-        "volume": 0.7
-      }
-    ]
-  },
-  "siren_call": {
-    "sounds": [
-      {
-        "name": "anexohorror:siren_call",
-        "volume": 0.7
-      }
-    ]
-  },
-  "tape_voice": {
-    "sounds": [
-      {
-        "name": "anexohorror:tape_voice",
-        "volume": 0.8
-      }
-    ]
-  },
-  "bone_crack_alt": {
-    "sounds": [
-      {
-        "name": "anexohorror:bone_crack_alt",
-        "volume": 0.8
-      }
-    ]
-  },
-  "dark_tape": {
-    "sounds": [
-      {
-        "name": "anexohorror:dark_tape",
-        "stream": true,
-        "volume": 0.5
-      }
-    ]
   }
 }

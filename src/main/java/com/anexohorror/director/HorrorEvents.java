@@ -9,8 +9,6 @@ import com.anexohorror.registry.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -54,7 +52,6 @@ public final class HorrorEvents {
             case FAKE_SOUND -> fakeSound(p, l, st);
             case FOOTSTEPS -> footsteps(p, l, st);
             case SILENCE -> silence(p, l, st);
-            case ARCHIVE -> archive(p, l, st);
         };
     }
 
@@ -134,10 +131,9 @@ public final class HorrorEvents {
         e.setAllowDay(!HorrorUtil.isNightTime(l)); // solo true si se invoco por comando de dia
         l.addFreshEntity(e);
 
-        float vol = Math.min(2.2F, Math.max(0.75F, (float) dist / 18.0F + 0.2F));
-        float pitch = 0.82F + r.nextFloat() * 0.28F;
-        // El crujido de aparición se envía solo al jugador objetivo en multijugador.
-        HorrorUtil.sound(p, ModSounds.CRACK.get(), SoundSource.HOSTILE, pos, vol, pitch);
+        float vol = Math.max(1.0F, (float) dist / 12.0F + 0.2F);
+        float pitch = 0.85F + r.nextFloat() * 0.3F;
+        l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, vol, pitch);
         st.lastVariant = v;
         return e;
     }
@@ -311,7 +307,7 @@ public final class HorrorEvents {
         }
         if (r.nextInt(100) < 35) {
             st.schedule(t + 30 + r.nextInt(40), (pl, lv) ->
-                    HorrorUtil.sound(pl, ModSounds.CREAK.get(), SoundSource.BLOCKS, dp, 0.8F, 0.72F));
+                    HorrorUtil.sound(pl, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS, dp, 1.0F, 0.8F));
         }
         return true;
     }
@@ -389,8 +385,7 @@ public final class HorrorEvents {
 
     // ------------------------------------------------------------------ eventos sin entidad (falsas presencias)
 
-    private enum Fake { WHISPER, BREATH, KNOCK_WALL, DRONE, STATIC, CRACK_ALONE, SCRAPE, HEARTBEAT, CREAK,
-        TAPE_VOICE, ANOMALY_TONE, CREATURE_CALL, SIREN_CALL, BONE_TICK }
+    private enum Fake { WHISPER, BREATH, KNOCK_WALL, DRONE, STATIC, CRACK_ALONE, SCRAPE, HEARTBEAT, CREAK }
 
     private static Vec3 around(ServerPlayer p, double lo, double hi, boolean behind) {
         RandomSource r = p.getRandom();
@@ -414,11 +409,6 @@ public final class HorrorEvents {
         w.put(Fake.SCRAPE, 1.3D);
         w.put(Fake.HEARTBEAT, 0.6D + st.fear);
         w.put(Fake.CREAK, 1.2D);
-        w.put(Fake.TAPE_VOICE, 0.85D);
-        w.put(Fake.ANOMALY_TONE, 0.75D);
-        w.put(Fake.CREATURE_CALL, night ? 0.32D : 0.08D);
-        w.put(Fake.SIREN_CALL, night ? 0.18D : 0.04D);
-        w.put(Fake.BONE_TICK, 0.55D);
         for (int idx : st.recentSounds) w.computeIfPresent(Fake.values()[idx], (k, v) -> v * 0.25D);
         Fake f = HorrorUtil.pickWeighted(r, w);
         st.recentSounds.addLast(f.ordinal());
@@ -450,18 +440,8 @@ public final class HorrorEvents {
                     around(p, 4.0D, 9.0D, false), 0.8F, pitch);
             case HEARTBEAT -> HorrorUtil.sound(p, ModSounds.HEARTBEAT.get(), SoundSource.AMBIENT,
                     p.getEyePosition(), 0.55F, 1.0F);
-            case CREAK -> HorrorUtil.sound(p, ModSounds.CREAK.get(), SoundSource.BLOCKS,
-                    around(p, 6.0D, 12.0D, false), 0.75F, 0.72F + r.nextFloat() * 0.2F);
-            case TAPE_VOICE -> HorrorUtil.sound(p, ModSounds.TAPE_VOICE.get(), SoundSource.HOSTILE,
-                    around(p, 4.0D, 9.0D, r.nextBoolean()), 0.38F, 0.82F + r.nextFloat() * 0.16F);
-            case ANOMALY_TONE -> HorrorUtil.sound(p, ModSounds.ANOMALY_TONE.get(), SoundSource.AMBIENT,
-                    around(p, 6.0D, 13.0D, false), 0.25F, 0.78F + r.nextFloat() * 0.22F);
-            case CREATURE_CALL -> HorrorUtil.sound(p, ModSounds.CREATURE_CALL.get(), SoundSource.HOSTILE,
-                    around(p, 16.0D, 28.0D, true), 0.22F, 0.82F + r.nextFloat() * 0.12F);
-            case SIREN_CALL -> HorrorUtil.sound(p, ModSounds.SIREN_CALL.get(), SoundSource.AMBIENT,
-                    around(p, 18.0D, 30.0D, false), 0.16F, 0.8F + r.nextFloat() * 0.12F);
-            case BONE_TICK -> HorrorUtil.sound(p, ModSounds.BONE_CRACK_ALT.get(), SoundSource.HOSTILE,
-                    around(p, 8.0D, 16.0D, r.nextBoolean()), 0.55F, 0.9F + r.nextFloat() * 0.16F);
+            case CREAK -> HorrorUtil.sound(p, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS,
+                    around(p, 6.0D, 12.0D, false), 0.9F, 0.75F + r.nextFloat() * 0.2F);
             default -> { }
         }
         return true;
@@ -513,39 +493,4 @@ public final class HorrorEvents {
     }
 
     private HorrorEvents() {}
-
-
-    /**
-     * Entrega fragmentos de archivo de forma local al jugador. La secuencia se conserva
-     * entre sesiones y el cooldown impide que la narrativa inunde el chat.
-     */
-    private static boolean archive(ServerPlayer p, ServerLevel l, PlayerState st) {
-        if (!HorrorConfig.ARCHIVE_MESSAGES.get() || !st.archiveCooldownReady(l)) return false;
-        String[] records = {
-                "La grabacion empieza 11 segundos antes de que se pulsara REC.",
-                "El operador confirma tres figuras. La camara solo registra dos.",
-                "No se ha encontrado ninguna puerta en la pared que aparece en la cinta.",
-                "La marca de tiempo avanza, pero las sombras retroceden.",
-                "Informe corregido: el observador no estaba fuera de la casa.",
-                "Se solicita no responder a voces que utilicen el nombre del operador.",
-                "La habitacion estaba vacia en todas las copias. En una de ellas, no.",
-                "La ultima imagen no pertenece a esta fecha.",
-                "No existe registro de quien etiqueto esta carpeta.",
-                "Fin del documento. La cinta continua reproduciendose."
-        };
-        int index = Math.floorMod(st.archiveIndex, records.length);
-        String label = String.format("REGISTRO %02d // COPIA INCOMPLETA", index + 1);
-        p.displayClientMessage(Component.literal(label + "\n" + records[index])
-                .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC), false);
-
-        // Un tono distante, exclusivo del jugador, acompaña solo algunos registros.
-        if (p.getRandom().nextInt(100) < 42) {
-            double angle = p.getRandom().nextDouble() * Math.PI * 2.0D;
-            double distance = 5.0D + p.getRandom().nextDouble() * 4.0D;
-            Vec3 source = p.position().add(Math.cos(angle) * distance, 0.4D, Math.sin(angle) * distance);
-            HorrorUtil.sound(p, ModSounds.STATIC.get(), SoundSource.AMBIENT, source, 0.22F, 0.72F + p.getRandom().nextFloat() * 0.18F);
-        }
-        st.markArchiveSent(l);
-        return true;
-    }
 }
