@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.2.0.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.3.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -39,3 +39,14 @@ silencios y escalada nocturna.
   peeker = figura negra con mascara, grin = esqueletica, smiler = muchos brazos con sombrero,
   drawn = hombre alto encorvado, crawler = criatura con cuernos, eye = gritador de espinas. El modelo 3D `slender` se mantiene.
 - Originales en `originals/v1.2/`.
+
+## v1.3.0
+- **Video de introduccion** (VHS de advertencia): 312 fotogramas a 12 fps empaquetados en `assets/anexohorror/video/intro.bin` + audio `sounds/intro.ogg`.
+  Sale la primera vez que entras a cada mundo/servidor (configurable: NEW_WORLD / ONCE / ALWAYS / OFF). ESC lo salta.
+  En un mundo propio el jugador es invulnerable mientras suena. El video original (27 MB) no esta en el repo.
+- **Flashbacks**: dos imagenes que cubren la pantalla de golpe cada 4-10 min (mas seguido de noche), ajustadas enteras sin recortar la entidad.
+- **Crujido limpio**: `crack.ogg` ahora es UNA sola fractura aislada (0.3 s). Alternativas en `originals/crack_alternativas/`.
+- **Frases en pantalla** al aparecer una presencia (sin repetir las 3 ultimas), en rojo sangre con aberracion cromatica, parpadeo y letras que se corrompen.
+- **Signos extranos**: maximo 6 a la vez, efimeros.
+- Opciones en `config/anexohorror-client.toml` (puedes desactivar flashbacks, texto, signos y efectos si eres sensible a destellos).
+- Comandos de prueba del cliente: `/ahc intro`, `/ahc flash`, `/ahc text`.

@@ -17,5 +17,6 @@ public class AnexoHorror {
         ModEntities.ENTITIES.register(bus);
         ModSounds.SOUNDS.register(bus);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, HorrorConfig.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
     }
 }
