@@ -22,6 +22,14 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> SCRAPE = reg("scrape");
     public static final RegistryObject<SoundEvent> INTRO = reg("intro");
 
+    // Recursos adicionales aportados para la siguiente fase de terror analógico.
+    public static final RegistryObject<SoundEvent> ANOMALY_TONE = reg("anomaly_tone");
+    public static final RegistryObject<SoundEvent> CREATURE_CALL = reg("creature_call");
+    public static final RegistryObject<SoundEvent> SIREN_CALL = reg("siren_call");
+    public static final RegistryObject<SoundEvent> TAPE_VOICE = reg("tape_voice");
+    public static final RegistryObject<SoundEvent> BONE_CRACK_ALT = reg("bone_crack_alt");
+    public static final RegistryObject<SoundEvent> DARK_TAPE = reg("dark_tape");
+
     private static RegistryObject<SoundEvent> reg(String name) {
         return SOUNDS.register(name,
                 () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(AnexoHorror.MODID, name)));

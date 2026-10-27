@@ -1,58 +1,76 @@
-# AnexoHorror (Forge 1.20.1 / 47.2.0)
+# AnexoHorror 1.5.0 — Analog Psychological Expansion
 
-Mod de terror analógico y psicológico. Siete presencias (seis planos con tus imagenes + un modelo 3D .obj) que observan,
-nunca persiguen ni atacan.
+**Minecraft Java 1.20.1 · Forge 47.2.0 · Java 17**
+
+AnexoHorror es un mod de terror analógico y psicológico. Las presencias observan, aparecen de forma fugaz y desaparecen; no persiguen ni atacan al jugador. Esta versión amplía el director de eventos, añade memoria persistente y suma recursos de audio aportados para el proyecto.
+
+## Cambios de esta versión
+
+- **Apariciones diurnas opcionales y poco frecuentes**: por defecto están activadas, pero limitadas a una presencia por jugador durante el día.
+- **Director adaptativo configurable**: ajusta los pesos de eventos según el entorno y la reacción del jugador. Se puede desactivar.
+- **Memoria entre sesiones**: conserva miedo, audacia, nerviosismo, número de encuentros y progreso del archivo en los datos persistentes del jugador.
+- **Expedientes anómalos**: mensajes narrativos fragmentados, con una secuencia que progresa y un tiempo mínimo entre registros.
+- **Terror en refugios configurable**: los eventos de puertas y camas se pueden desactivar de forma independiente del resto de sucesos.
+- **Audio adicional**: recursos proporcionados por el usuario convertidos a OGG para Minecraft; los sonidos más intensos se reproducen con volumen bajo y probabilidad reducida.
+- **Mejora multijugador**: las presencias y su crujido de aparición se limitan al jugador objetivo cuando el cliente recibe el identificador de propietario sincronizado.
+- **Ajuste de intensidad inicial**: intensidad 1.1, apariciones diurnas más lejanas y eventos narrativos con enfriamiento.
 
 ## Compilar
-Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
-    gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.4.0.jar
+Requiere JDK 17 y acceso a internet para descargar las dependencias de Forge.
 
-Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
-Para probar: `./gradlew runClient`.
+Si ya tienes Gradle:
+```bash
+gradle build
+```
+
+Si el repositorio contiene Gradle Wrapper:
+```bash
+./gradlew build
+```
+
+El JAR se genera en `build/libs/`. Para publicar, sube el contenido de la carpeta del proyecto al repositorio de GitHub y revisa el resultado de la compilación en Actions. La compilación de esta entrega debe verificarse en el entorno Forge real antes de publicar una release.
 
 ## Comandos de prueba (OP nivel 2)
-- `/anexohorror spawn [0-5]`  presencia delante de ti (0 peeker, 1 grin, 2 smiler, 3 drawn, 4 crawler, 5 eye, 6 slender 3D)
-- `/anexohorror event <stare|peripheral|peek|door|bed|cave|fake_sound|footsteps|silence>`
-- `/anexohorror status`       miedo / audacia / nerviosismo aprendidos del jugador
+
+- `/anexohorror spawn [0-6]` — invoca una presencia de prueba.
+- `/anexohorror event <stare|peripheral|peek|door|bed|cave|fake_sound|footsteps|silence|archive>` — prueba un evento.
+- `/anexohorror status` — muestra miedo, audacia, nerviosismo, encuentros, progreso del archivo y tiempo aproximado hasta el siguiente evento.
 
 ## Configuración
-`config/anexohorror-common.toml`: intensidad, distancias mínimas, máximo de entidades, sonidos falsos,
-silencios y escalada nocturna.
 
-## Archivos originales
-`originals/` conserva tus PNG y el MP3. En el mod: texturas con fondo transparente
-(`textures/entity/*.png`) y `crack.ogg` (tu MP3 convertido a OGG mono, requerido por Minecraft para sonido posicional).
+Después de iniciar el juego una vez, edita `config/anexohorror-common.toml`.
 
-## v1.1.0
-- Nueva presencia 3D `slender` (modelo `obj/slender.obj`, decimado de 798k a 29k triangulos; textura reentonada a la paleta de la foto de referencia).
-- Animacion por codigo: respira, se inclina hacia ti y da sacudidas bruscas a "fotogramas".
-- Efectos de pantalla al mirar una presencia: tinte mauve, vineta, lineas de escaneo, grano, cortes de cinta y latido.
-- El .obj original (97 MB) no esta en el repo (GitHub web admite 25 MB por archivo): guardalo tu.
+| Opción | Valor inicial | Función |
+|---|---:|---|
+| `enabled` | `true` | Activa el director de terror. |
+| `intensity` | `1.1` | Frecuencia general de eventos. |
+| `maxEntities` | `3` | Máximo de presencias simultáneas por jugador durante la noche. |
+| `minDistanceDay` | `22` | Distancia mínima de aparición diurna. |
+| `minDistanceNight` | `10` | Distancia mínima de aparición nocturna. |
+| `daytimePresences` | `true` | Permite presencias diurnas excepcionales. |
+| `adaptiveDirector` | `true` | Adapta el tipo de evento al entorno y a la reacción del jugador. |
+| `encounterMemory` | `true` | Guarda memoria y progreso narrativo entre sesiones. |
+| `fakeSounds` | `true` | Activa sonidos posicionales sin entidad. |
+| `silenceEvents` | `true` | Permite eventos de silencio ambiental. |
+| `escalation` | `true` | Permite una reaparición ocasional tras apartar la mirada; no hay persecución. |
+| `homeAnomalies` | `true` | Activa anomalías sonoras en puertas y camas. |
+| `archiveMessages` | `true` | Activa los expedientes narrativos. |
+| `archiveCooldownSeconds` | `240` | Tiempo mínimo entre mensajes de archivo. |
 
-## v1.1.1
-- Rendimiento: modelo 3D de 29k a 11k triangulos (LOD de 3.4k a mas de 22 bloques), transformacion sin asignaciones por vertice, precarga del modelo al cargar recursos (sin tiron al aparecer) y overlay mas ligero.
+Los efectos visuales y destellos tienen opciones independientes en `config/anexohorror-client.toml`.
 
-## v1.2.0
-- Las seis presencias 2D se reemplazaron por nuevas imagenes, recortadas sin fondo (alpha limpio, sin halos):
-  peeker = figura negra con mascara, grin = esqueletica, smiler = muchos brazos con sombrero,
-  drawn = hombre alto encorvado, crawler = criatura con cuernos, eye = gritador de espinas. El modelo 3D `slender` se mantiene.
-- Originales en `originals/v1.2/`.
+## Recursos aportados
 
-## v1.3.0
-- **Video de introduccion** (VHS de advertencia): 312 fotogramas a 12 fps empaquetados en `assets/anexohorror/video/intro.bin` + audio `sounds/intro.ogg`.
-  Sale la primera vez que entras a cada mundo/servidor (configurable: NEW_WORLD / ONCE / ALWAYS / OFF). ESC lo salta.
-  En un mundo propio el jugador es invulnerable mientras suena. El video original (27 MB) no esta en el repo.
-- **Flashbacks**: dos imagenes que cubren la pantalla de golpe cada 4-10 min (mas seguido de noche), ajustadas enteras sin recortar la entidad.
-- **Crujido limpio**: `crack.ogg` ahora es UNA sola fractura aislada (0.3 s). Alternativas en `originals/crack_alternativas/`.
-- **Frases en pantalla** al aparecer una presencia (sin repetir las 3 ultimas), en rojo sangre con aberracion cromatica, parpadeo y letras que se corrompen.
-- **Signos extranos**: maximo 6 a la vez, efimeros.
-- Opciones en `config/anexohorror-client.toml` (puedes desactivar flashbacks, texto, signos y efectos si eres sensible a destellos).
-- Comandos de prueba del cliente: `/ahc intro`, `/ahc flash`, `/ahc text`.
+Los nuevos archivos originales se conservan en `originals/user_assets_v1.5/`. Sus versiones OGG listas para el juego están en `src/main/resources/assets/anexohorror/sounds/`. Los sonidos largos se mantienen como recursos opcionales para evitar que una pista de 40 segundos interrumpa automáticamente el juego.
 
-## v1.4.0
-- **Video en alta calidad**: 960x540 a 20 fps (642 fotogramas JPEG, 21 MB repartidos en `video/intro_0.bin` + `intro_1.bin`, indice `intro.idx`) y audio nuevo.
-- **El video sale cada vez que anochece** (modo `NIGHTFALL`, por defecto). Tambien existe `NEW_WORLD` (primera vez en cada mundo) y `OFF`. Cambialo en `config/anexohorror-client.toml`.
-- **Las presencias solo aparecen de noche** (tiempo 13000-23000) y se esfuman al amanecer. De dia quedan solo sonidos/eventos sin entidad. Los comandos de prueba (`/anexohorror spawn`, `/anexohorror event`) siguen funcionando de dia.
-- **Aura luminosa**: halo suave y emisivo que sigue la silueta de cada presencia (`textures/entity/*_glow.png`), con pulso lento y parpadeo. Ajustable con `glow` y `glowStrength` en la config del cliente.
+## Pruebas recomendadas antes de publicar
+
+1. Compilar con JDK 17 y Forge 47.2.0.
+2. Probar un mundo nuevo de día y de noche, con `daytimePresences` activado y desactivado.
+3. Confirmar que las entidades siguen inmóviles, no dañan al jugador y desaparecen correctamente.
+4. Entrar con dos jugadores: cada uno debe ver sus propias presencias y no escuchar los crujidos privados del otro.
+5. Desconectarse y volver a entrar para comprobar la persistencia del miedo y del archivo.
+6. Verificar cada sonido nuevo, el volumen, la frecuencia y la configuración del cliente.
+7. Revisar `latest.log` y probar también un servidor dedicado.
+

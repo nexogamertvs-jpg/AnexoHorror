@@ -41,7 +41,12 @@ public final class HorrorDirector {
 
     @SubscribeEvent
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
-        STATES.remove(event.getEntity().getUUID());
+        if (event.getEntity() instanceof ServerPlayer sp) {
+            PlayerState state = STATES.remove(sp.getUUID());
+            if (state != null) state.saveMemory(sp);
+        } else {
+            STATES.remove(event.getEntity().getUUID());
+        }
     }
 
     /** Al despertar, a veces hay algo junto a la cama. */

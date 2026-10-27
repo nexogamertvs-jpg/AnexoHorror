@@ -6,6 +6,7 @@ import com.anexohorror.entity.HorrorMode;
 import com.anexohorror.entity.HorrorVariant;
 import com.anexohorror.entity.VanishReason;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -34,6 +35,9 @@ public final class PlayerState {
     double bold;        // 0..1 el jugador sostiene la mirada / se acerca
     double jumpy;       // 0..1 el jugador aparta la vista rapido
     int idleTicks;
+    int successfulEncounters;
+    int archiveIndex;
+    long lastArchiveAt = Long.MIN_VALUE / 4L;
     Vec3 lastPos = Vec3.ZERO;
     long silenceUntil;
     long now;
@@ -45,6 +49,46 @@ public final class PlayerState {
     PlayerState(ServerPlayer p) {
         this.player = p;
         this.cooldown = 1200 + p.getRandom().nextInt(2400); // gracia inicial de 1 a 3 minutos
+        loadMemory(p);
+    }
+
+    private void loadMemory(ServerPlayer p) {
+        if (!HorrorConfig.ENCOUNTER_MEMORY.get()) return;
+        CompoundTag root = p.getPersistentData();
+        if (!root.contains("anexohorror_memory")) return;
+        CompoundTag data = root.getCompound("anexohorror_memory");
+        fear = Mth.clamp(data.getDouble("fear"), 0.0D, 1.0D);
+        bold = Mth.clamp(data.getDouble("bold"), 0.0D, 1.0D);
+        jumpy = Mth.clamp(data.getDouble("jumpy"), 0.0D, 1.0D);
+        successfulEncounters = Math.max(0, data.getInt("encounters"));
+        archiveIndex = Math.max(0, data.getInt("archiveIndex"));
+        lastArchiveAt = data.getLong("lastArchiveAt");
+    }
+
+    void saveMemory(ServerPlayer p) {
+        if (!HorrorConfig.ENCOUNTER_MEMORY.get()) {
+            p.getPersistentData().remove("anexohorror_memory");
+            return;
+        }
+        CompoundTag data = new CompoundTag();
+        data.putDouble("fear", Mth.clamp(fear, 0.0D, 1.0D));
+        data.putDouble("bold", Mth.clamp(bold, 0.0D, 1.0D));
+        data.putDouble("jumpy", Mth.clamp(jumpy, 0.0D, 1.0D));
+        data.putInt("encounters", successfulEncounters);
+        data.putInt("archiveIndex", archiveIndex);
+        data.putLong("lastArchiveAt", lastArchiveAt);
+        p.getPersistentData().put("anexohorror_memory", data);
+    }
+
+    boolean archiveCooldownReady(ServerLevel level) {
+        long wait = HorrorConfig.ARCHIVE_COOLDOWN_SECONDS.get() * 20L;
+        long now = level.getGameTime();
+        return now < lastArchiveAt || now - lastArchiveAt >= wait;
+    }
+
+    void markArchiveSent(ServerLevel level) {
+        lastArchiveAt = level.getGameTime();
+        archiveIndex++;
     }
 
     public void schedule(int delayTicks, Action a) {
@@ -136,6 +180,7 @@ public final class PlayerState {
             if (HorrorEvents.run(t, p, l, this)) {
                 recent.addLast(t);
                 while (recent.size() > 6) recent.removeFirst();
+                if (HorrorConfig.ENCOUNTER_MEMORY.get()) successfulEncounters++;
                 return;
             }
             w.remove(t);
@@ -147,25 +192,40 @@ public final class PlayerState {
         boolean ug = isUnderground(p, l);
         boolean in = isIndoors(p, l);
         boolean idle = idleTicks > 600;
+        boolean adaptive = HorrorConfig.ADAPTIVE_DIRECTOR.get();
+        double boldFactor = adaptive ? bold : 0.3D;
+        double jumpyFactor = adaptive ? jumpy : 0.3D;
+        double fearFactor = adaptive ? fear : 0.0D;
         EnumMap<EventType, Double> w = new EnumMap<>(EventType.class);
-        w.put(EventType.STARE, (ug ? 1.0D : in ? 0.8D : 3.0D) * (1.0D + bold * 0.3D));
-        w.put(EventType.PERIPHERAL, 2.2D * (1.0D + jumpy * 0.8D));
-        w.put(EventType.PEEK, 2.5D * (1.0D + bold * 0.6D) * (in || ug ? 1.5D : 1.0D) * (idle ? 1.4D : 1.0D));
-        w.put(EventType.DOOR, in ? 3.5D : 1.2D);
-        w.put(EventType.BED, (night ? 2.4D : 1.0D) * (in ? 2.0D : 0.8D));
+
+        w.put(EventType.STARE, (ug ? 1.0D : in ? 0.8D : 3.0D) * (1.0D + boldFactor * 0.3D));
+        w.put(EventType.PERIPHERAL, 2.2D * (1.0D + jumpyFactor * 0.8D));
+        w.put(EventType.PEEK, 2.5D * (1.0D + boldFactor * 0.6D) * (in || ug ? 1.5D : 1.0D) * (idle ? 1.4D : 1.0D));
+        w.put(EventType.DOOR, HorrorConfig.HOME_ANOMALIES.get() ? (in ? 3.5D : 1.2D) : 0.0D);
+        w.put(EventType.BED, HorrorConfig.HOME_ANOMALIES.get() ? (night ? 2.4D : 1.0D) * (in ? 2.0D : 0.8D) : 0.0D);
         w.put(EventType.CAVE, ug ? 5.0D : 0.0D);
         boolean fake = HorrorConfig.FAKE_SOUNDS.get();
-        w.put(EventType.FAKE_SOUND, fake ? 3.0D * (1.0D + jumpy * 0.5D) : 0.0D);
+        w.put(EventType.FAKE_SOUND, fake ? 3.0D * (1.0D + jumpyFactor * 0.5D) : 0.0D);
         w.put(EventType.FOOTSTEPS, fake ? (night ? 2.2D : 1.0D) * (idle ? 1.5D : 1.0D) : 0.0D);
-        w.put(EventType.SILENCE, HorrorConfig.SILENCE_EVENTS.get() ? 1.0D + fear * 0.8D : 0.0D);
-        if (!HorrorUtil.isNightTime(l)) { // las presencias solo salen de noche; de dia quedan los eventos sin entidad
-            w.remove(EventType.STARE);
-            w.remove(EventType.PERIPHERAL);
-            w.remove(EventType.PEEK);
-            w.remove(EventType.BED);
-            w.remove(EventType.CAVE);
+        w.put(EventType.SILENCE, HorrorConfig.SILENCE_EVENTS.get() ? 1.0D + fearFactor * 0.8D : 0.0D);
+        w.put(EventType.ARCHIVE, HorrorConfig.ARCHIVE_MESSAGES.get() ? (night ? 1.4D : 0.65D) : 0.0D);
+
+        if (!night) {
+            if (HorrorConfig.DAYTIME_PRESENCES.get()) {
+                // Durante el dia las presencias son raras y distantes; los eventos de audio siguen disponibles.
+                for (EventType t : List.of(EventType.STARE, EventType.PERIPHERAL, EventType.PEEK, EventType.BED, EventType.CAVE)) {
+                    w.computeIfPresent(t, (k, v) -> v * 0.12D);
+                }
+            } else {
+                w.remove(EventType.STARE);
+                w.remove(EventType.PERIPHERAL);
+                w.remove(EventType.PEEK);
+                w.remove(EventType.BED);
+                w.remove(EventType.CAVE);
+            }
         }
-        for (EventType t : recent) w.computeIfPresent(t, (k, v) -> v * 0.4D); // evita patrones predecibles
+
+        for (EventType t : recent) w.computeIfPresent(t, (k, v) -> v * 0.4D);
         w.entrySet().removeIf(e -> e.getValue() <= 0.0D);
         return w;
     }
