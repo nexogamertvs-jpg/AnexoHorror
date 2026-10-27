@@ -77,6 +77,7 @@ public final class HorrorEvents {
     }
 
     private static boolean canSpawnMore(ServerPlayer p, ServerLevel l, boolean night) {
+        if (!HorrorUtil.entitiesAllowed(l)) return false; // solo de noche
         int a = active(p, l);
         return night ? a < HorrorConfig.MAX_ENTITIES.get() : a < 1;
     }
@@ -127,6 +128,7 @@ public final class HorrorEvents {
         e.setup(p.getUUID(), v, mode, scale, maxLife, stareLimit, grace, glimpse, vanishDist, chain);
         float yaw = (float) (Mth.atan2(p.getZ() - pos.z, p.getX() - pos.x) * (180.0D / Math.PI)) - 90.0F;
         e.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
+        e.setAllowDay(!HorrorUtil.isNightTime(l)); // solo true si se invoco por comando de dia
         l.addFreshEntity(e);
 
         float vol = Math.max(1.0F, (float) dist / 12.0F + 0.2F);

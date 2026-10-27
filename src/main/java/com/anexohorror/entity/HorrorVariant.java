@@ -19,6 +19,11 @@ public enum HorrorVariant {
     public final float aspect;
     /** true = se dibuja con el modelo .obj en lugar de un plano. */
     public final boolean model;
+    /** Aura luminosa: textura y tamano relativos al sprite. */
+    public final ResourceLocation glowTexture;
+    public final float glowScaleX;
+    public final float glowScaleY;
+    public final float glowPadY;
 
     HorrorVariant(String name, int pxW, int pxH, float height, float hover) {
         this.texture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/" + name + ".png");
@@ -26,6 +31,11 @@ public enum HorrorVariant {
         this.hover = hover;
         this.aspect = pxW / (float) pxH;
         this.model = false;
+        int pad = Math.round(Math.max(pxW, pxH) * 0.16F); // igual que al generar *_glow.png
+        this.glowTexture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/" + name + "_glow.png");
+        this.glowScaleX = (pxW + 2 * pad) / (float) pxW;
+        this.glowScaleY = (pxH + 2 * pad) / (float) pxH;
+        this.glowPadY = pad / (float) pxH;
     }
 
     /** Variante 3D: aspect = ancho aproximado / alto, usado solo para comprobar visibilidad. */
@@ -35,6 +45,10 @@ public enum HorrorVariant {
         this.hover = hover;
         this.aspect = aspect;
         this.model = true;
+        this.glowTexture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/aura.png");
+        this.glowScaleX = 1.7F;
+        this.glowScaleY = 1.25F;
+        this.glowPadY = 0.08F;
     }
 
     public static HorrorVariant byId(int i) {

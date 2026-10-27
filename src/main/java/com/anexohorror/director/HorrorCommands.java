@@ -50,7 +50,13 @@ public final class HorrorCommands {
                 src.sendFailure(Component.literal("Evento desconocido: " + name));
                 return 0;
             }
-            boolean ok = HorrorEvents.run(t, p, p.serverLevel(), HorrorDirector.stateFor(p));
+            boolean ok;
+            HorrorUtil.forceDay = true;
+            try {
+                ok = HorrorEvents.run(t, p, p.serverLevel(), HorrorDirector.stateFor(p));
+            } finally {
+                HorrorUtil.forceDay = false;
+            }
             if (ok) src.sendSuccess(() -> Component.literal("Evento ejecutado: " + t), false);
             else src.sendFailure(Component.literal("No hubo lugar valido para: " + t));
             return ok ? 1 : 0;

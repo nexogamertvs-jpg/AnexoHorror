@@ -44,6 +44,7 @@ public class HorrorEntity extends Mob {
     private int glimpseTicks;
     private boolean hasBeenSeen;
     private boolean visibleCache;
+    private boolean allowDay;
 
     public HorrorEntity(EntityType<? extends HorrorEntity> type, Level level) {
         super(type, level);
@@ -79,6 +80,7 @@ public class HorrorEntity extends Mob {
     public HorrorMode getMode() { return HorrorMode.byId(this.entityData.get(DATA_MODE)); }
     public float getVisualScale() { return this.entityData.get(DATA_SCALE); }
     public UUID getOwnerId() { return ownerId; }
+    public void setAllowDay(boolean allow) { this.allowDay = allow; }
     public int getChainLeft() { return chainLeft; }
     public boolean wasSeen() { return hasBeenSeen; }
     public int getSeenTicks() { return seenTicks; }
@@ -105,6 +107,10 @@ public class HorrorEntity extends Mob {
             return;
         }
         life++;
+        if (!allowDay && life % 20 == 0 && !HorrorUtil.isNightTime(sl)) { // amanece: se esfuma
+            vanish(VanishReason.EXPIRED);
+            return;
+        }
 
         // Siempre orientada hacia el jugador (el render ademas hace billboard).
         double dx = p.getX() - getX();

@@ -70,21 +70,32 @@ public class IntroVideoScreen extends Screen {
 
     private void loadData() throws Exception {
         ResourceManager rm = this.minecraft.getResourceManager();
-        try (InputStream in = rm.open(new ResourceLocation(AnexoHorror.MODID, "video/intro.bin"))) {
-            data = in.readAllBytes();
+        byte[] idx;
+        try (InputStream in = rm.open(new ResourceLocation(AnexoHorror.MODID, "video/intro.idx"))) {
+            idx = in.readAllBytes();
         }
-        ByteBuffer bb = ByteBuffer.wrap(data);
+        ByteBuffer bb = ByteBuffer.wrap(idx);
         fps = bb.getInt();
         vw = bb.getInt();
         vh = bb.getInt();
         frames = bb.getInt();
+        int parts = bb.getInt();
         offsets = new int[frames];
         lengths = new int[frames];
-        int off = 16 + 4 * frames;
+        long total = 0;
         for (int i = 0; i < frames; i++) {
             lengths[i] = bb.getInt();
-            offsets[i] = off;
-            off += lengths[i];
+            offsets[i] = (int) total;
+            total += lengths[i];
+        }
+        data = new byte[(int) total];
+        int pos = 0;
+        for (int i = 0; i < parts; i++) { // el video va partido en varios archivos .bin
+            try (InputStream in = rm.open(new ResourceLocation(AnexoHorror.MODID, "video/intro_" + i + ".bin"))) {
+                byte[] chunk = in.readAllBytes();
+                System.arraycopy(chunk, 0, data, pos, Math.min(chunk.length, data.length - pos));
+                pos += chunk.length;
+            }
         }
     }
 
@@ -176,6 +187,7 @@ public class IntroVideoScreen extends Screen {
             // limpieza
         }
         texture = null;
+        data = null; // libera memoria
         protect(false);
         super.removed();
     }

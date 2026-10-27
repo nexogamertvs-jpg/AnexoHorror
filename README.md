@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.3.0.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.4.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -50,3 +50,9 @@ silencios y escalada nocturna.
 - **Signos extranos**: maximo 6 a la vez, efimeros.
 - Opciones en `config/anexohorror-client.toml` (puedes desactivar flashbacks, texto, signos y efectos si eres sensible a destellos).
 - Comandos de prueba del cliente: `/ahc intro`, `/ahc flash`, `/ahc text`.
+
+## v1.4.0
+- **Video en alta calidad**: 960x540 a 20 fps (642 fotogramas JPEG, 21 MB repartidos en `video/intro_0.bin` + `intro_1.bin`, indice `intro.idx`) y audio nuevo.
+- **El video sale cada vez que anochece** (modo `NIGHTFALL`, por defecto). Tambien existe `NEW_WORLD` (primera vez en cada mundo) y `OFF`. Cambialo en `config/anexohorror-client.toml`.
+- **Las presencias solo aparecen de noche** (tiempo 13000-23000) y se esfuman al amanecer. De dia quedan solo sonidos/eventos sin entidad. Los comandos de prueba (`/anexohorror spawn`, `/anexohorror event`) siguen funcionando de dia.
+- **Aura luminosa**: halo suave y emisivo que sigue la silueta de cada presencia (`textures/entity/*_glow.png`), con pulso lento y parpadeo. Ajustable con `glow` y `glowStrength` en la config del cliente.

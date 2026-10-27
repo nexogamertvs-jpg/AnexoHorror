@@ -158,6 +158,13 @@ public final class PlayerState {
         w.put(EventType.FAKE_SOUND, fake ? 3.0D * (1.0D + jumpy * 0.5D) : 0.0D);
         w.put(EventType.FOOTSTEPS, fake ? (night ? 2.2D : 1.0D) * (idle ? 1.5D : 1.0D) : 0.0D);
         w.put(EventType.SILENCE, HorrorConfig.SILENCE_EVENTS.get() ? 1.0D + fear * 0.8D : 0.0D);
+        if (!HorrorUtil.isNightTime(l)) { // las presencias solo salen de noche; de dia quedan los eventos sin entidad
+            w.remove(EventType.STARE);
+            w.remove(EventType.PERIPHERAL);
+            w.remove(EventType.PEEK);
+            w.remove(EventType.BED);
+            w.remove(EventType.CAVE);
+        }
         for (EventType t : recent) w.computeIfPresent(t, (k, v) -> v * 0.4D); // evita patrones predecibles
         w.entrySet().removeIf(e -> e.getValue() <= 0.0D);
         return w;

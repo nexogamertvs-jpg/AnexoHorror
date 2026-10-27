@@ -22,6 +22,19 @@ import java.util.Optional;
 
 public final class HorrorUtil {
 
+    /** Solo para comandos de prueba: permite apariciones de dia. */
+    public static volatile boolean forceDay;
+
+    /** Noche de Minecraft (13000-23000). Las presencias solo existen en este tramo. */
+    public static boolean isNightTime(ServerLevel l) {
+        long t = l.getDayTime() % 24000L;
+        return t >= 13000L && t < 23000L;
+    }
+
+    public static boolean entitiesAllowed(ServerLevel l) {
+        return forceDay || isNightTime(l);
+    }
+
     /** Celda de aire de 2 de alto, sin liquido y con suelo solido debajo. */
     public static boolean standable(ServerLevel l, BlockPos p) {
         if (!l.hasChunkAt(p)) return false;
