@@ -2,6 +2,7 @@ package com.anexohorror.entity;
 
 import com.anexohorror.director.HorrorDirector;
 import com.anexohorror.director.HorrorUtil;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -97,7 +98,15 @@ public class HorrorEntity extends Mob {
     public void tick() {
         super.tick();
         this.noPhysics = true;
-        if (this.level().isClientSide) return;
+        if (this.level().isClientSide) {
+            if (this.tickCount % 4 == 0) { // ceniza lenta alrededor: atmosfera, sin molestar
+                this.level().addParticle(ParticleTypes.ASH,
+                        getX() + (this.random.nextDouble() - 0.5D) * spriteWidth() * 0.8D,
+                        getY() + spriteHover() + this.random.nextDouble() * spriteHeight(),
+                        getZ() + (this.random.nextDouble() - 0.5D) * 0.6D, 0.0D, -0.015D, 0.0D);
+            }
+            return;
+        }
         if (!(this.level() instanceof ServerLevel sl)) return;
         if (ownerId == null) { this.discard(); return; }
 

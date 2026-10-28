@@ -11,7 +11,8 @@ public enum HorrorVariant {
     DRAWN("drawn", 156, 448, 2.70F, 0.00F),     // hombre alto y encorvado
     CRAWLER("crawler", 448, 441, 2.00F, 0.00F), // criatura con cuernos y garras
     EYE("eye", 263, 448, 2.60F, 0.00F),         // gritador de espinas
-    SLENDER("slender", 3.00F, 0.00F, 0.70F);    // modelo 3D: criatura de piernas largas sentada en su silla
+    SLENDER("slender", 3.00F, 0.00F, 0.70F),    // modelo 3D: criatura de piernas largas sentada en su silla
+    STALKER("stalker", 194, 448, 3.00F, 0.00F); // silueta negra de garras largas
 
     public final ResourceLocation texture;
     public final float height;

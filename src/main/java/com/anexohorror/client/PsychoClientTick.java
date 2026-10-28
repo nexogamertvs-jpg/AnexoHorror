@@ -8,6 +8,7 @@ import com.anexohorror.registry.ModSounds;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
@@ -18,15 +19,16 @@ import net.minecraftforge.fml.common.Mod;
 import java.util.ArrayDeque;
 import java.util.Random;
 
-/** Estado de cliente: mirada hacia las presencias, frases, signos y flashbacks periodicos. */
+/** Estado de cliente: mirada hacia las presencias, frases, signos, flashbacks, screamers, apagones y estatica. */
 @Mod.EventBusSubscriber(modid = AnexoHorror.MODID, value = Dist.CLIENT)
 public final class PsychoClientTick {
     private static final String[] PHRASES = {
-            "NO TE ESCONDAS", "TE PUEDO VER", "NO ESTÁS SOLO", "EL FINAL ESTÁ CERCA",
-            "FALTA POCO", "HUELO TU MUERTE", "DIOS NO LLEGA AQUÍ"};
+            "NO TE ESCONDAS", "TE PUEDO VER", "NO EST\u00c1S SOLO", "EL FINAL EST\u00c1 CERCA",
+            "FALTA POCO", "HUELO TU MUERTE", "DIOS NO LLEGA AQU\u00cd"};
 
     private static final Random RNG = new Random();
     private static final ArrayDeque<Integer> RECENT = new ArrayDeque<>();
+    private static final ArrayDeque<Integer> RECENT_SC = new ArrayDeque<>();
 
     private static float intensity;
     private static int stare;
@@ -35,6 +37,7 @@ public final class PsychoClientTick {
     private static int sinceText = 1000;
     private static int flashCountdown = -1;
     private static int lastFlash = -1;
+    private static int tinnitusIn = -1;
 
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -46,10 +49,16 @@ public final class PsychoClientTick {
             stare = 0;
             wasInView = false;
             flashCountdown = -1;
+            tinnitusIn = -1;
             PsychoOverlay.reset();
             return;
         }
         if (mc.isPaused()) return;
+
+        // ---- grano suave de fondo durante la noche
+        long dayT = mc.level.getDayTime() % 24000L;
+        boolean night = dayT >= 13000L && dayT < 23000L;
+        PsychoOverlay.ambient = (night && ClientConfig.NIGHT_GRAIN.get()) ? 0.10F : 0.0F;
 
         // ---- mirada hacia presencias
         float best = 0.0F;
@@ -73,8 +82,10 @@ public final class PsychoClientTick {
         float g = Math.min(1.0F, intensity * (0.4F + 0.6F * stare / 200.0F));
         PsychoOverlay.glitch = g;
 
-        if (g > 0.35F && ++beat % 34 == 0) {
-            mc.getSoundManager().play(SimpleSoundInstance.forUI(ModSounds.HEARTBEAT.get(), 1.0F, 0.5F * g));
+        // latido: cuanto mas miras, mas rapido y agudo
+        int period = 34 - (int) (14 * g);
+        if (g > 0.35F && ++beat % period == 0) {
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(ModSounds.HEARTBEAT.get(), 1.0F + 0.25F * g, 0.5F * g));
         }
 
         // ---- frase al aparecer una presencia en pantalla
@@ -87,11 +98,17 @@ public final class PsychoClientTick {
         wasInView = inView;
         if (PsychoOverlay.textTicks > 0) PsychoOverlay.textTicks--;
 
+        // ---- temporizadores de efectos
+        if (PsychoOverlay.scTicks > 0) PsychoOverlay.scTicks--;
+        if (PsychoOverlay.blackTicks > 0) PsychoOverlay.blackTicks--;
+        if (PsychoOverlay.staticTicks > 0) PsychoOverlay.staticTicks--;
+        if (tinnitusIn >= 0 && --tinnitusIn < 0) play(ModSounds.TINNITUS.get(), 1.0F, 0.55F);
+
         // ---- signos extranos: pocos y efimeros
         for (int i = PsychoOverlay.SYMBOL_LIST.size() - 1; i >= 0; i--) {
             if (--PsychoOverlay.SYMBOL_LIST.get(i).ttl <= 0) PsychoOverlay.SYMBOL_LIST.remove(i);
         }
-        boolean active = PsychoOverlay.textTicks > 0 || g > 0.25F || PsychoOverlay.flashTicks > 0;
+        boolean active = PsychoOverlay.textTicks > 0 || g > 0.25F || PsychoOverlay.flashTicks > 0 || PsychoOverlay.scTicks > 0;
         if (ClientConfig.SYMBOLS.get() && active && PsychoOverlay.SYMBOL_LIST.size() < 6 && RNG.nextFloat() < 0.12F) {
             PsychoOverlay.Symbol sy = new PsychoOverlay.Symbol();
             sy.x = 0.03F + RNG.nextFloat() * 0.92F;
@@ -112,10 +129,13 @@ public final class PsychoClientTick {
             int min = ClientConfig.FLASH_MIN_MINUTES.get();
             int max = Math.max(min, ClientConfig.FLASH_MAX_MINUTES.get());
             double minutes = min + RNG.nextDouble() * (max - min);
-            long t = mc.level.getDayTime() % 24000L;
-            if (t >= 13000L && t < 23000L) minutes *= 0.7D; // de noche, mas seguidos
+            if (night) minutes *= 0.7D; // de noche, mas seguidos
             flashCountdown = (int) (minutes * 1200.0D);
         }
+    }
+
+    private static void play(SoundEvent ev, float pitch, float volume) {
+        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(ev, pitch, volume));
     }
 
     public static void triggerText() {
@@ -139,8 +159,36 @@ public final class PsychoClientTick {
         PsychoOverlay.flashImage = img;
         PsychoOverlay.flashTicks = PsychoOverlay.flashTotal = 8 + RNG.nextInt(9);
         // una sola fractura limpia en el momento del golpe
-        Minecraft.getInstance().getSoundManager().play(
-                SimpleSoundInstance.forUI(ModSounds.CRACK.get(), 0.9F + RNG.nextFloat() * 0.2F, 1.0F));
+        play(ModSounds.CRACK.get(), 0.9F + RNG.nextFloat() * 0.2F, 1.0F);
+    }
+
+    /** Screamer al intentar dormir: imagen entera + mensaje + chillido, impacto y acufeno. image = -1 -> al azar. */
+    public static void triggerScreamer(int image, String message) {
+        int img = image;
+        if (img < 0 || img >= PsychoOverlay.TEX_COUNT) {
+            int tries = 0;
+            do {
+                img = RNG.nextInt(PsychoOverlay.TEX_COUNT);
+            } while (RECENT_SC.contains(img) && ++tries < 20);
+        }
+        RECENT_SC.addLast(img);
+        while (RECENT_SC.size() > 3) RECENT_SC.removeFirst();
+        PsychoOverlay.scImage = img;
+        PsychoOverlay.scText = (message == null || message.isEmpty()) ? "NO ESCAPAR\u00c1S DE ESTA REALIDAD" : message;
+        PsychoOverlay.scTicks = PsychoOverlay.scTotal = 58;
+        play(ModSounds.SCREAMER.get(), 0.95F + RNG.nextFloat() * 0.1F, 1.0F);
+        play(ModSounds.IMPACT.get(), 1.0F, 0.9F);
+        tinnitusIn = 45;
+    }
+
+    public static void triggerBlackout(int ticks) {
+        PsychoOverlay.blackTicks = PsychoOverlay.blackTotal = Math.max(4, ticks);
+        play(ModSounds.TAPE_STOP.get(), 1.0F, 0.7F);
+    }
+
+    public static void triggerStatic(int ticks) {
+        PsychoOverlay.staticTicks = PsychoOverlay.staticTotal = Math.max(4, ticks);
+        play(ModSounds.STATIC.get(), 0.9F + RNG.nextFloat() * 0.2F, 0.6F);
     }
 
     private PsychoClientTick() {}

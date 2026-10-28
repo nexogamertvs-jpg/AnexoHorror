@@ -12,6 +12,9 @@ public final class HorrorConfig {
     public static final ForgeConfigSpec.BooleanValue FAKE_SOUNDS;
     public static final ForgeConfigSpec.BooleanValue SILENCE_EVENTS;
     public static final ForgeConfigSpec.BooleanValue ESCALATION;
+    public static final ForgeConfigSpec.BooleanValue BLOCK_SLEEP;
+    public static final ForgeConfigSpec.BooleanValue BED_SETS_SPAWN;
+    public static final ForgeConfigSpec.BooleanValue NIGHT_ESCALATION;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -34,6 +37,11 @@ public final class HorrorConfig {
                 .define("silenceEvents", true);
         ESCALATION = b.comment("De noche, una presencia puede reaparecer algo mas cerca al apartar la vista (nunca persigue).")
                 .define("escalation", true);
+        b.pop();
+        b.push("nights");
+        BLOCK_SLEEP = b.comment("Impide dormir: cada intento provoca un screamer.").define("blockSleep", true);
+        BED_SETS_SPAWN = b.comment("Aunque no puedas dormir, la cama sigue fijando tu punto de reaparicion.").define("bedSetsSpawn", true);
+        NIGHT_ESCALATION = b.comment("Cada noche vivida aumenta un poco la frecuencia de eventos (hasta +96%).").define("nightEscalation", true);
         b.pop();
         SPEC = b.build();
     }

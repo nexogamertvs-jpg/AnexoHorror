@@ -56,5 +56,62 @@
         "stream": true
       }
     ]
+  },
+  "screamer": {
+    "sounds": [
+      "anexohorror:screamer"
+    ]
+  },
+  "impact": {
+    "sounds": [
+      "anexohorror:impact"
+    ]
+  },
+  "tinnitus": {
+    "sounds": [
+      "anexohorror:tinnitus"
+    ]
+  },
+  "tape_stop": {
+    "sounds": [
+      "anexohorror:tape_stop"
+    ]
+  },
+  "tape_voice": {
+    "sounds": [
+      "anexohorror:tape_voice"
+    ]
+  },
+  "dark_tape": {
+    "sounds": [
+      {
+        "name": "anexohorror:dark_tape",
+        "stream": true
+      }
+    ]
+  },
+  "creature_call": {
+    "sounds": [
+      {
+        "name": "anexohorror:creature_call",
+        "stream": true
+      }
+    ]
+  },
+  "siren_call": {
+    "sounds": [
+      {
+        "name": "anexohorror:siren_call",
+        "stream": true
+      }
+    ]
+  },
+  "anomaly_tone": {
+    "sounds": [
+      {
+        "name": "anexohorror:anomaly_tone",
+        "stream": true
+      }
+    ]
   }
 }

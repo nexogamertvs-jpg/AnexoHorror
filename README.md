@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.4.0.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.5.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -56,3 +56,13 @@ silencios y escalada nocturna.
 - **El video sale cada vez que anochece** (modo `NIGHTFALL`, por defecto). Tambien existe `NEW_WORLD` (primera vez en cada mundo) y `OFF`. Cambialo en `config/anexohorror-client.toml`.
 - **Las presencias solo aparecen de noche** (tiempo 13000-23000) y se esfuman al amanecer. De dia quedan solo sonidos/eventos sin entidad. Los comandos de prueba (`/anexohorror spawn`, `/anexohorror event`) siguen funcionando de dia.
 - **Aura luminosa**: halo suave y emisivo que sigue la silueta de cada presencia (`textures/entity/*_glow.png`), con pulso lento y parpadeo. Ajustable con `glow` y `glowStrength` en la config del cliente.
+
+## v1.5.0
+- **VHS al anochecer garantizado**: el SERVIDOR vigila el reloj del mundo y, al cruzar el tick 13000, manda el video al jugador (paquete de red). Ya no depende de la config vieja ni del reloj del cliente. Nueva clave `intro.mode` (las instalaciones anteriores conservaban `NEW_WORLD`).
+- **No se puede dormir**: cada intento se cancela y lanza un screamer (8 imagenes) con el mensaje "NO ESCAPARAS DE ESTA REALIDAD", chillido, impacto y acufeno. La cama sigue fijando el spawn (`bedSetsSpawn`). Desactivable con `blockSleep`.
+- **Noches vividas**: cada noche sube un poco la frecuencia de eventos (hasta +96%).
+- **Nueva entidad** `stalker` (silueta de garras largas) con su aura.
+- **Eventos nocturnos nuevos**: apagon de pantalla, rafaga de estatica, llamadas lejanas (criatura / sirena / tono anomalo), mensajes de chat falsos.
+- **Sonidos**: se usan tus 6 audios (susurro de cinta, llamada de criatura, sirena, tono anomalo, musica turbia tras el video) + sintetizados (screamer, impacto, acufeno, cinta que se detiene).
+- **Visual**: marcas de camara VHS de noche (REC, PLAY, contador, fecha), grano suave nocturno, temblor de camara, latido que se acelera al mirar, ceniza alrededor de las presencias.
+- Comandos de prueba: `/ahc screamer|blackout|static` y `/anexohorror event blackout|static_burst|far_call|fake_chat`.

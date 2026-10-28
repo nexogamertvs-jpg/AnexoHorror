@@ -5,6 +5,7 @@ import com.anexohorror.entity.HorrorEntity;
 import com.anexohorror.entity.HorrorMode;
 import com.anexohorror.entity.HorrorVariant;
 import com.anexohorror.entity.VanishReason;
+import com.anexohorror.registry.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -36,6 +37,7 @@ public final class PlayerState {
     int idleTicks;
     Vec3 lastPos = Vec3.ZERO;
     long silenceUntil;
+    long lastSleepScare = -1000L;
     long now;
     HorrorVariant lastVariant;
     final ArrayDeque<EventType> recent = new ArrayDeque<>();
@@ -118,6 +120,7 @@ public final class PlayerState {
         int light = l.getMaxLocalRawBrightness(p.blockPosition());
         double dark = Mth.clamp((8 - light) / 8.0D, 0.0D, 1.0D);
         double intensity = (0.35D + 0.65D * night + 0.25D * dark) * HorrorConfig.INTENSITY.get();
+        if (HorrorConfig.NIGHT_ESCALATION.get()) intensity *= 1.0D + Math.min(nights(p), 12) * 0.08D;
         double dayBase = 2400 + r.nextInt(4800);   // 2 a 6 min
         double nightBase = 700 + r.nextInt(2100);  // 35 s a 2.3 min
         double base = HorrorUtil.lerp(dayBase, nightBase, night);
@@ -158,6 +161,12 @@ public final class PlayerState {
         w.put(EventType.FAKE_SOUND, fake ? 3.0D * (1.0D + jumpy * 0.5D) : 0.0D);
         w.put(EventType.FOOTSTEPS, fake ? (night ? 2.2D : 1.0D) * (idle ? 1.5D : 1.0D) : 0.0D);
         w.put(EventType.SILENCE, HorrorConfig.SILENCE_EVENTS.get() ? 1.0D + fear * 0.8D : 0.0D);
+        if (HorrorUtil.isNightTime(l)) {
+            w.put(EventType.BLACKOUT, 0.9D + fear * 0.6D);
+            w.put(EventType.STATIC_BURST, 1.0D);
+            w.put(EventType.FAR_CALL, HorrorConfig.FAKE_SOUNDS.get() ? 1.4D : 0.0D);
+            w.put(EventType.FAKE_CHAT, 0.5D);
+        }
         if (!HorrorUtil.isNightTime(l)) { // las presencias solo salen de noche; de dia quedan los eventos sin entidad
             w.remove(EventType.STARE);
             w.remove(EventType.PERIPHERAL);
@@ -168,6 +177,26 @@ public final class PlayerState {
         for (EventType t : recent) w.computeIfPresent(t, (k, v) -> v * 0.4D); // evita patrones predecibles
         w.entrySet().removeIf(e -> e.getValue() <= 0.0D);
         return w;
+    }
+
+    static int nights(ServerPlayer p) {
+        return p.getPersistentData().getCompound("PlayerPersisted").getInt("anexohorror_nights");
+    }
+
+    /** Se llama al empezar cada noche (13000): cuenta la noche y programa la musica turbia tras el video. */
+    void onNightfall(ServerPlayer p, ServerLevel l) {
+        var data = p.getPersistentData();
+        var persisted = data.getCompound("PlayerPersisted");
+        persisted.putInt("anexohorror_nights", persisted.getInt("anexohorror_nights") + 1);
+        data.put("PlayerPersisted", persisted);
+        cooldown = Math.max(cooldown, 900 + p.getRandom().nextInt(900)); // los eventos empiezan despues del video
+        if (HorrorConfig.FAKE_SOUNDS.get()) {
+            schedule(760, (pl, lv) -> {
+                if (HorrorUtil.isNightTime(lv)) {
+                    HorrorUtil.sound(pl, ModSounds.DARK_TAPE.get(), SoundSource.AMBIENT, pl.position(), 0.45F, 1.0F);
+                }
+            });
+        }
     }
 
     /** Adaptacion: el director aprende como reacciona este jugador. */

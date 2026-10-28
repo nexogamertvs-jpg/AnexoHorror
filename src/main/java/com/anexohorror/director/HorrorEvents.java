@@ -4,10 +4,14 @@ import com.anexohorror.HorrorConfig;
 import com.anexohorror.entity.HorrorEntity;
 import com.anexohorror.entity.HorrorMode;
 import com.anexohorror.entity.HorrorVariant;
+import com.anexohorror.net.ClientEffectPacket;
+import com.anexohorror.net.ModNetwork;
 import com.anexohorror.registry.ModEntities;
 import com.anexohorror.registry.ModSounds;
 import net.minecraft.core.BlockPos;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,13 +35,13 @@ import java.util.function.Predicate;
 /** Ejecucion de cada tipo de evento. Devuelve false si no hubo lugar valido (el director prueba otro). */
 public final class HorrorEvents {
 
-    // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, SLENDER
-    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 2.0};
-    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 1.5};
-    private static final double[] W_PEEK = {4.0, 2.0, 1.0, 1.0, 1.5, 2.0, 2.5};
-    private static final double[] W_DOOR = {3.0, 2.0, 1.0, 0.5, 1.0, 2.0, 1.5};
-    private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0};
-    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 2.0};
+    // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, SLENDER, STALKER
+    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 2.0, 2.5};
+    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 1.5, 2.0};
+    private static final double[] W_PEEK = {4.0, 2.0, 1.0, 1.0, 1.5, 2.0, 2.5, 1.5};
+    private static final double[] W_DOOR = {3.0, 2.0, 1.0, 0.5, 1.0, 2.0, 1.5, 1.0};
+    private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0};
+    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 2.0, 2.0};
 
     private static final HorrorVariant[] VARIANTS = HorrorVariant.values();
 
@@ -52,6 +56,10 @@ public final class HorrorEvents {
             case FAKE_SOUND -> fakeSound(p, l, st);
             case FOOTSTEPS -> footsteps(p, l, st);
             case SILENCE -> silence(p, l, st);
+            case BLACKOUT -> blackout(p, l, st);
+            case STATIC_BURST -> staticBurst(p, l, st);
+            case FAR_CALL -> farCall(p, l, st);
+            case FAKE_CHAT -> fakeChat(p, l, st);
         };
     }
 
@@ -416,7 +424,7 @@ public final class HorrorEvents {
 
         float pitch = 0.85F + r.nextFloat() * 0.3F;
         switch (f) {
-            case WHISPER -> HorrorUtil.sound(p, ModSounds.WHISPER.get(), SoundSource.HOSTILE,
+            case WHISPER -> HorrorUtil.sound(p, r.nextInt(100) < 35 ? ModSounds.TAPE_VOICE.get() : ModSounds.WHISPER.get(), SoundSource.HOSTILE,
                     around(p, night ? 1.5D : 2.5D, night ? 5.0D : 7.0D, r.nextBoolean()), 0.6F + r.nextFloat() * 0.4F, pitch);
             case BREATH -> HorrorUtil.sound(p, ModSounds.BREATH.get(), SoundSource.HOSTILE,
                     around(p, 1.2D, 2.8D, true), 0.55F + r.nextFloat() * 0.3F, pitch);
@@ -492,5 +500,62 @@ public final class HorrorEvents {
         return true;
     }
 
+    // ------------------------------------------------------------------ eventos nocturnos nuevos
+
+    /** Apagon: la pantalla se va a negro unos instantes; al volver, a veces hay algo de reojo. */
+    private static boolean blackout(ServerPlayer p, ServerLevel l, PlayerState st) {
+        RandomSource r = p.getRandom();
+        int ticks = 8 + r.nextInt(14);
+        ModNetwork.send(p, ClientEffectPacket.BLACKOUT, ticks, 0, "");
+        p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.MUSIC));
+        p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.AMBIENT));
+        if (r.nextInt(100) < 45) {
+            st.schedule(ticks + 2, (pl, lv) -> peripheral(pl, lv, st));
+        } else if (r.nextBoolean()) {
+            st.schedule(ticks + 10, (pl, lv) -> HorrorUtil.sound(pl, ModSounds.BREATH.get(), SoundSource.HOSTILE,
+                    around(pl, 1.2D, 2.4D, true), 0.6F, 0.9F));
+        }
+        return true;
+    }
+
+    /** Rafaga de estatica de television con su sonido. */
+    private static boolean staticBurst(ServerPlayer p, ServerLevel l, PlayerState st) {
+        ModNetwork.send(p, ClientEffectPacket.STATIC, 6 + p.getRandom().nextInt(10), 0, "");
+        return true;
+    }
+
+    /** Llamadas lejanas: criatura, sirena o tono anomalo, muy lejos y de forma posicional. */
+    private static boolean farCall(ServerPlayer p, ServerLevel l, PlayerState st) {
+        RandomSource r = p.getRandom();
+        int roll = r.nextInt(100);
+        if (roll < 45) {
+            HorrorUtil.sound(p, ModSounds.CREATURE_CALL.get(), SoundSource.HOSTILE, around(p, 38.0D, 62.0D, false),
+                    3.0F, 0.9F + r.nextFloat() * 0.15F);
+        } else if (roll < 75) {
+            HorrorUtil.sound(p, ModSounds.SIREN_CALL.get(), SoundSource.HOSTILE, around(p, 40.0D, 64.0D, false),
+                    3.2F, 0.95F + r.nextFloat() * 0.1F);
+        } else {
+            HorrorUtil.sound(p, ModSounds.ANOMALY_TONE.get(), SoundSource.AMBIENT, around(p, 6.0D, 12.0D, false),
+                    0.55F, 0.95F);
+        }
+        return true;
+    }
+
+    /** Mensaje de chat falso: alguien "entra" a la partida o te habla. */
+    private static boolean fakeChat(ServerPlayer p, ServerLevel l, PlayerState st) {
+        RandomSource r = p.getRandom();
+        String[] names = {"???", "Observador", "Anexo"};
+        String name = names[r.nextInt(names.length)];
+        if (r.nextInt(100) < 55) {
+            p.sendSystemMessage(Component.translatable("multiplayer.player.joined", name).withStyle(ChatFormatting.YELLOW));
+        } else {
+            String[] msgs = {"no mires atr\u00e1s", "te veo", "ya casi", "shhh", "sigues ah\u00ed", "abre los ojos"};
+            p.sendSystemMessage(Component.translatable("chat.type.text", name, msgs[r.nextInt(msgs.length)])
+                    .withStyle(ChatFormatting.DARK_RED));
+        }
+        return true;
+    }
+
     private HorrorEvents() {}
+
 }

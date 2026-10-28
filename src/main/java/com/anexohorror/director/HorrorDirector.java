@@ -3,9 +3,16 @@ package com.anexohorror.director;
 import com.anexohorror.AnexoHorror;
 import com.anexohorror.entity.HorrorEntity;
 import com.anexohorror.entity.VanishReason;
+import com.anexohorror.HorrorConfig;
+import com.anexohorror.net.ClientEffectPacket;
+import com.anexohorror.net.ModNetwork;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerSleepInBedEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -57,16 +64,31 @@ public final class HorrorDirector {
         }
     }
 
-    /** Mientras duermes: un susurro muy cerca. */
+    /**
+     * No se puede dormir: cada intento se cancela y provoca un screamer con el mensaje.
+     * La cama sigue fijando el punto de reaparicion (configurable).
+     */
     @SubscribeEvent
     public static void onSleep(PlayerSleepInBedEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
-        PlayerState st = stateFor(sp);
-        if (sp.getRandom().nextInt(100) < 40) {
-            st.schedule(40 + sp.getRandom().nextInt(50), (pl, lv) -> HorrorUtil.sound(pl,
-                    com.anexohorror.registry.ModSounds.WHISPER.get(), net.minecraft.sounds.SoundSource.HOSTILE,
-                    pl.position().add(1.5D, 0.5D, -1.0D), 0.5F, 0.85F));
+        if (!HorrorConfig.BLOCK_SLEEP.get()) return;
+        ServerLevel l = sp.serverLevel();
+        if (l.dimension() != Level.OVERWORLD) return;
+
+        event.setResult(Player.BedSleepingProblem.OTHER_PROBLEM);
+
+        if (HorrorConfig.BED_SETS_SPAWN.get()) {
+            HitResult hit = sp.pick(6.0D, 0.0F, false);
+            if (hit instanceof BlockHitResult bhr && l.getBlockState(bhr.getBlockPos()).getBlock() instanceof BedBlock) {
+                sp.setRespawnPosition(l.dimension(), bhr.getBlockPos(), sp.getYRot(), false, true);
+            }
         }
+
+        PlayerState st = stateFor(sp);
+        long now = l.getGameTime();
+        if (now - st.lastSleepScare < 100L) return; // un solo susto por intento
+        st.lastSleepScare = now;
+        ModNetwork.send(sp, ClientEffectPacket.SCREAMER, -1, 0, "NO ESCAPAR\u00c1S DE ESTA REALIDAD");
     }
 
     private HorrorDirector() {}
