@@ -6,6 +6,7 @@ import com.anexohorror.entity.HorrorVariant;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import com.anexohorror.AnexoHorror;
 import com.anexohorror.ClientConfig;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -21,6 +22,7 @@ import org.joml.Matrix4f;
 
 /** Dibuja la imagen original como plano vertical que siempre mira a la camara (estetica analogica). */
 public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
+    private static final ResourceLocation AURA = new ResourceLocation(AnexoHorror.MODID, "textures/entity/aura.png");
 
     public HorrorRenderer(EntityRendererProvider.Context context) {
         super(context);
@@ -53,24 +55,34 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
         int ph = Math.floorMod(entity.tickCount * 7 + entity.getId(), 61);
         if (ph < 2) alpha *= 0.35F; // parpadeo tipo cinta danada
 
+        boolean headOnly = entity.isHeadOnly();
         poseStack.pushPose();
         poseStack.translate(0.0D, hover, 0.0D);
+        if (entity.getMode() == HorrorMode.HUNT) { // cazando: temblor frenetico y parpadeo
+            float tt = entity.tickCount + partialTick;
+            poseStack.translate(Mth.sin(tt * 3.7F) * 0.07F, Mth.sin(tt * 5.3F) * 0.05F, Mth.sin(tt * 4.1F) * 0.07F);
+            if (Math.floorMod(entity.tickCount * 5 + entity.getId(), 11) < 2) alpha *= 0.55F;
+        }
         poseStack.mulPose(Axis.YP.rotation(ang));
         if (entity.getMode() == HorrorMode.PEEK) {
             poseStack.mulPose(Axis.ZP.rotationDegrees((Math.floorMod(entity.getId(), 5) - 2) * 3.0F));
         }
 
         int light = LightTexture.pack(Math.max(LightTexture.block(packedLight), 8), LightTexture.sky(packedLight));
-        glow(buffer, v, poseStack.last(), w, h, alpha, entity, partialTick, -0.04F);
+        glow(buffer, v, poseStack.last(), w, h, alpha, entity, partialTick, -0.04F, headOnly);
         VertexConsumer vc = buffer.getBuffer(RenderType.entityTranslucent(v.texture));
         PoseStack.Pose pose = poseStack.last();
         Matrix4f m = pose.pose();
         Matrix3f n = pose.normal();
         float hw = w / 2.0F;
-        vertex(vc, m, n, -hw, 0.0F, 0.0F, 1.0F, alpha, light);
-        vertex(vc, m, n, hw, 0.0F, 1.0F, 1.0F, alpha, light);
-        vertex(vc, m, n, hw, h, 1.0F, 0.0F, alpha, light);
-        vertex(vc, m, n, -hw, h, 0.0F, 0.0F, alpha, light);
+        float u0 = headOnly ? v.headU0 : 0.0F;
+        float u1 = headOnly ? v.headU1 : 1.0F;
+        float v0 = headOnly ? v.headV0 : 0.0F;
+        float v1 = headOnly ? v.headV1 : 1.0F;
+        vertex(vc, m, n, -hw, 0.0F, u0, v1, alpha, light);
+        vertex(vc, m, n, hw, 0.0F, u1, v1, alpha, light);
+        vertex(vc, m, n, hw, h, u1, v0, alpha, light);
+        vertex(vc, m, n, -hw, h, u0, v0, alpha, light);
         poseStack.popPose();
     }
 
@@ -107,7 +119,7 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
 
         ps.pushPose();
         ps.mulPose(Axis.YP.rotation((float) Mth.atan2(cdx, cdz)));
-        glow(buf, e.getVariant(), ps.last(), e.spriteWidth(), e.spriteHeight(), alpha, e, pt, -0.5F);
+        glow(buf, e.getVariant(), ps.last(), e.spriteWidth(), e.spriteHeight(), alpha, e, pt, -0.5F, false);
         ps.popPose();
 
         float s = e.spriteHeight() / m.height;
@@ -169,19 +181,19 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
 
     /** Aura luminosa suave (emisiva, aditiva) detras de la presencia para que se note de noche. */
     private static void glow(MultiBufferSource buf, HorrorVariant v, PoseStack.Pose pose, float w, float h,
-                             float alpha, HorrorEntity e, float pt, float zBack) {
+                             float alpha, HorrorEntity e, float pt, float zBack, boolean head) {
         if (!ClientConfig.GLOW.get()) return;
         float t = e.tickCount + pt;
         float pulse = 0.78F + 0.22F * Mth.sin(t * 0.07F + e.getId());
         if (Math.floorMod(e.tickCount * 3 + e.getId(), 97) < 2) pulse *= 0.5F; // parpadeo
         float a = Mth.clamp(alpha * pulse * ClientConfig.GLOW_STRENGTH.get().floatValue(), 0.0F, 1.0F);
         if (a < 0.02F) return;
-        VertexConsumer gv = buf.getBuffer(RenderType.eyes(v.glowTexture));
+        VertexConsumer gv = buf.getBuffer(RenderType.eyes(head ? AURA : v.glowTexture));
         Matrix4f m = pose.pose();
         Matrix3f n = pose.normal();
-        float gw = w * v.glowScaleX * 0.5F;
-        float gh = h * v.glowScaleY;
-        float gb = -h * v.glowPadY;
+        float gw = w * (head ? 1.9F : v.glowScaleX) * 0.5F;
+        float gh = h * (head ? 1.7F : v.glowScaleY);
+        float gb = -h * (head ? 0.35F : v.glowPadY);
         int full = LightTexture.FULL_BRIGHT;
         vertexZ(gv, m, n, -gw, gb, zBack, 0.0F, 1.0F, a, full);
         vertexZ(gv, m, n, gw, gb, zBack, 1.0F, 1.0F, a, full);

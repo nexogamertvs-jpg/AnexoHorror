@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.5.0.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.6.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -66,3 +66,11 @@ silencios y escalada nocturna.
 - **Sonidos**: se usan tus 6 audios (susurro de cinta, llamada de criatura, sirena, tono anomalo, musica turbia tras el video) + sintetizados (screamer, impacto, acufeno, cinta que se detiene).
 - **Visual**: marcas de camara VHS de noche (REC, PLAY, contador, fecha), grano suave nocturno, temblor de camara, latido que se acelera al mirar, ceniza alrededor de las presencias.
 - Comandos de prueba: `/ahc screamer|blackout|static` y `/anexohorror event blackout|static_burst|far_call|fake_chat`.
+
+## v1.6.0
+- **Asomarse despacio (solo la cabeza)**: en modo PEEK cada entidad 2D enseña solo su cabeza (recorte propio por entidad), a la altura de los ojos, y sale lentamente (4-8 s) desde detras del obstaculo. Funciona por esquinas, bloques, puertas abiertas y VENTANAS DE CRISTAL (la cabeza sube desde debajo del alfeizar). Probable con cualquier entidad.
+- **Persecucion**: una presencia cualquiera congela tu mirada 5 s con "NO ESCAPARAS NUNCA MAS DE MI" y despues te persigue frenetica: rompe bloques (si mobGriefing esta activo), trepa, nada la detiene. Al alcanzarte NO hace dano: solo screamer. Config `[hunt]`: enabled, speed, breakBlocks, minNight, cooldownMinutes. Prueba: `/anexohorror event hunt`.
+- **HUD VHS siempre activo** (dia y noche).
+- **Mas presencias**: intervalos nocturnos mas cortos, mas intentos de colocacion y reintento rapido si no hubo sitio.
+- **Screamers**: si falta alguna textura se salta (ya no sale el cuadro negro y morado). Ojo: la subida web de GitHub admite 100 archivos por vez.
+- La carpeta `originals/` ya no va en el paquete (para no pasar de 100 archivos).

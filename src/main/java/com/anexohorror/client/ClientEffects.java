@@ -13,6 +13,7 @@ public final class ClientEffects {
             case ClientEffectPacket.SCREAMER -> PsychoClientTick.triggerScreamer(a, text);
             case ClientEffectPacket.BLACKOUT -> PsychoClientTick.triggerBlackout(a);
             case ClientEffectPacket.STATIC -> PsychoClientTick.triggerStatic(a);
+            case ClientEffectPacket.LOCK -> PsychoClientTick.triggerLock(a, b, text);
             default -> { }
         }
     }

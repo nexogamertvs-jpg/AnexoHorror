@@ -14,6 +14,7 @@ public final class ClientEffectPacket {
     public static final int SCREAMER = 1;  // a = indice de imagen (-1 = al azar), text = mensaje
     public static final int BLACKOUT = 2;  // a = ticks
     public static final int STATIC = 3;    // a = ticks
+    public static final int LOCK = 4;      // a = id de la entidad, b = ticks de mirada congelada, text = mensaje
 
     private final int kind;
     private final int a;

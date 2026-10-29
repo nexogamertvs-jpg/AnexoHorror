@@ -1,19 +1,28 @@
 package com.anexohorror.entity;
 
+import com.anexohorror.HorrorConfig;
 import com.anexohorror.director.HorrorDirector;
 import com.anexohorror.director.HorrorUtil;
+import com.anexohorror.net.ClientEffectPacket;
+import com.anexohorror.net.ModNetwork;
+import com.anexohorror.registry.ModSounds;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -46,6 +55,17 @@ public class HorrorEntity extends Mob {
     private boolean hasBeenSeen;
     private boolean visibleCache;
     private boolean allowDay;
+
+    // animacion de asomarse (solo cabeza): sale lentamente desde un punto oculto hasta su posicion final
+    public static final float HEAD_CENTER = 1.55F;
+    private boolean peekAnim;
+    private double peekBx, peekBy, peekBz;
+    private float peekDx, peekDy, peekDz;
+    private int revealTicks = 1;
+
+    // persecucion: 0 = no, 1 = mirada congelada, 2 = cazando
+    private int huntPhase;
+    private int huntTimer;
 
     public HorrorEntity(EntityType<? extends HorrorEntity> type, Level level) {
         super(type, level);
@@ -90,9 +110,38 @@ public class HorrorEntity extends Mob {
         return m == HorrorMode.LOW ? 0.0F : v.hover * scale;
     }
 
-    public float spriteHeight() { return getVariant().height * getVisualScale(); }
-    public float spriteWidth() { return spriteHeight() * getVariant().aspect; }
-    public float spriteHover() { return hoverOf(getVariant(), getMode(), getVisualScale()); }
+    /** Modo asomarse en un plano 2D: solo se dibuja la cabeza, a la altura de los ojos. */
+    public boolean isHeadOnly() { return getMode() == HorrorMode.PEEK && !getVariant().model; }
+
+    public float spriteHeight() {
+        return isHeadOnly() ? getVariant().headHeight(getVisualScale()) : getVariant().height * getVisualScale();
+    }
+
+    public float spriteWidth() {
+        return isHeadOnly() ? getVariant().headWidth(getVisualScale()) : getVariant().height * getVisualScale() * getVariant().aspect;
+    }
+
+    public float spriteHover() {
+        return isHeadOnly() ? HEAD_CENTER - spriteHeight() / 2.0F : hoverOf(getVariant(), getMode(), getVisualScale());
+    }
+
+    /** Posicion final (bx,by,bz) y vector hacia donde esta oculta (dx,dy,dz); sale en reveal ticks. */
+    public void setPeekAnim(double bx, double by, double bz, float dx, float dy, float dz, int reveal) {
+        this.peekAnim = true;
+        this.peekBx = bx; this.peekBy = by; this.peekBz = bz;
+        this.peekDx = dx; this.peekDy = dy; this.peekDz = dz;
+        this.revealTicks = Math.max(1, reveal);
+    }
+
+    public int getRevealTicks() { return revealTicks; }
+
+    /** Mirada congelada (lockTicks) y despues persecucion frenetica hasta alcanzar al jugador. */
+    public void beginHunt(int lockTicks) {
+        this.huntPhase = 1;
+        this.huntTimer = lockTicks;
+    }
+
+    public boolean isHunting() { return huntPhase != 0; }
 
     @Override
     public void tick() {
@@ -116,6 +165,7 @@ public class HorrorEntity extends Mob {
             return;
         }
         life++;
+        if (huntPhase != 0) { tickHunt(sl, p); return; }
         if (!allowDay && life % 20 == 0 && !HorrorUtil.isNightTime(sl)) { // amanece: se esfuma
             vanish(VanishReason.EXPIRED);
             return;
@@ -127,6 +177,13 @@ public class HorrorEntity extends Mob {
         float yaw = (float) (Mth.atan2(dz, dx) * (180.0D / Math.PI)) - 90.0F;
         this.setYRot(yaw);
         this.setYHeadRot(yaw);
+
+        if (peekAnim) { // sale despacio desde detras del obstaculo (ease in-out)
+            float t = Mth.clamp((life - 8) / (float) revealTicks, 0.0F, 1.0F);
+            float e = t * t * (3.0F - 2.0F * t);
+            float k = 1.0F - e;
+            this.setPos(peekBx + peekDx * k, peekBy + peekDy * k, peekBz + peekDz * k);
+        }
 
         double dist = Math.sqrt(dx * dx + dz * dz);
         if (dist < vanishDist) { vanish(VanishReason.TOO_CLOSE); return; }
@@ -160,6 +217,57 @@ public class HorrorEntity extends Mob {
         }
     }
 
+    private void tickHunt(ServerLevel sl, ServerPlayer p) {
+        double dx = p.getX() - getX();
+        double dz = p.getZ() - getZ();
+        float yaw = (float) (Mth.atan2(dz, dx) * (180.0D / Math.PI)) - 90.0F;
+        this.setYRot(yaw);
+        this.setYHeadRot(yaw);
+
+        if (huntPhase == 1) { // mirada congelada: se queda quieta, mirandote
+            if (--huntTimer <= 0) {
+                huntPhase = 2;
+                huntTimer = 1800; // si en 90 s no llega, desaparece
+                this.entityData.set(DATA_MODE, HorrorMode.HUNT.ordinal());
+                sl.playSound(null, getX(), getY(), getZ(), ModSounds.CREATURE_CALL.get(), SoundSource.HOSTILE, 3.0F, 1.0F);
+            }
+            return;
+        }
+        if (--huntTimer <= 0) { vanish(VanishReason.EXPIRED); return; }
+
+        double hd = Math.sqrt(dx * dx + dz * dz);
+        double dy = p.getY() - getY();
+        if (hd < 1.8D && Math.abs(dy) < 2.6D) { // alcanzado: nada de dano, solo el screamer
+            ModNetwork.send(p, ClientEffectPacket.SCREAMER, 3, 0, "TE ALCANZ\u00d3");
+            vanish(VanishReason.TOO_CLOSE);
+            return;
+        }
+        double speed = HorrorConfig.HUNT_SPEED.get();
+        double step = Math.min(speed, hd);
+        double nx = hd > 1.0E-3D ? getX() + dx / hd * step : getX();
+        double nz = hd > 1.0E-3D ? getZ() + dz / hd * step : getZ();
+        double ny = getY() + Mth.clamp(dy, -0.32D, 0.32D); // trepa y baja siguiendo al jugador
+        breakBlocks(sl, nx, ny, nz);
+        this.setPos(nx, ny, nz);
+        if (life % 5 == 0) {
+            sl.playSound(null, nx, ny, nz, SoundEvents.RAVAGER_STEP, SoundSource.HOSTILE, 1.6F, 0.8F);
+        }
+    }
+
+    /** Rompe lo que haya en su camino (respeta mobGriefing y la config). Sin soltar objetos para no inundar el mundo. */
+    private void breakBlocks(ServerLevel sl, double x, double y, double z) {
+        if (!HorrorConfig.HUNT_BREAKS_BLOCKS.get() || !sl.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) return;
+        BlockPos base = BlockPos.containing(x, y, z);
+        int broken = 0;
+        for (int i = 0; i <= 2 && broken < 3; i++) {
+            BlockPos bp = base.above(i);
+            BlockState bs = sl.getBlockState(bp);
+            if (bs.isAir() || bs.getDestroySpeed(sl, bp) < 0.0F || !bs.getFluidState().isEmpty()) continue;
+            sl.destroyBlock(bp, false, this);
+            broken++;
+        }
+    }
+
     public void vanish(VanishReason reason) {
         if (this.isRemoved()) return;
         if (ownerId != null && !this.level().isClientSide) HorrorDirector.onVanish(ownerId, this, reason);
@@ -168,8 +276,8 @@ public class HorrorEntity extends Mob {
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        if (!this.level().isClientSide && !this.isRemoved()) vanish(VanishReason.HURT);
-        return false;
+        if (huntPhase == 0 && !this.level().isClientSide && !this.isRemoved()) vanish(VanishReason.HURT);
+        return false; // durante la caza nada la detiene
     }
 
     @Override public boolean isPushable() { return false; }

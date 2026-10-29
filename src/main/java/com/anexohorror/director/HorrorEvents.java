@@ -19,8 +19,11 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.AbstractGlassBlock;
 import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.IronBarsBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.Vec3;
@@ -38,8 +41,8 @@ public final class HorrorEvents {
     // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, SLENDER, STALKER
     private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 2.0, 2.5};
     private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 1.5, 2.0};
-    private static final double[] W_PEEK = {4.0, 2.0, 1.0, 1.0, 1.5, 2.0, 2.5, 1.5};
-    private static final double[] W_DOOR = {3.0, 2.0, 1.0, 0.5, 1.0, 2.0, 1.5, 1.0};
+    private static final double[] W_PEEK = {4.0, 3.0, 3.0, 3.0, 3.0, 3.0, 1.0, 3.0};
+    private static final double[] W_DOOR = {3.0, 2.5, 2.5, 2.0, 2.5, 2.5, 1.0, 2.5};
     private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0};
     private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 2.0, 2.0};
 
@@ -60,6 +63,8 @@ public final class HorrorEvents {
             case STATIC_BURST -> staticBurst(p, l, st);
             case FAR_CALL -> farCall(p, l, st);
             case FAKE_CHAT -> fakeChat(p, l, st);
+            case WINDOW -> window(p, l, st);
+            case HUNT -> hunt(p, l, st);
         };
     }
 
@@ -123,7 +128,7 @@ public final class HorrorEvents {
         double vanishDist;
         switch (mode) {
             case PERIPHERAL -> { maxLife = 50 + r.nextInt(70); stareLimit = 0; grace = 0; glimpse = 2 + r.nextInt(4); vanishDist = 3.0D; }
-            case PEEK -> { maxLife = night ? 300 + r.nextInt(500) : 200 + r.nextInt(300);
+            case PEEK -> { maxLife = 170 + (night ? 300 + r.nextInt(500) : 200 + r.nextInt(300));
                 stareLimit = night ? 120 + r.nextInt(260) : 60 + r.nextInt(120); grace = 6 + r.nextInt(8);
                 glimpse = 0; vanishDist = Math.min(4.0D, dist * 0.5D); }
             case LOW -> { maxLife = 260 + r.nextInt(300); stareLimit = (night ? 120 : 80) + r.nextInt(160);
@@ -153,7 +158,7 @@ public final class HorrorEvents {
         RandomSource r = p.getRandom();
         Vec3 hl = horizontalLook(p);
         Vec3 eye = p.getEyePosition();
-        for (int i = 0; i < 60; i++) {
+        for (int i = 0; i < 120; i++) {
             double ang = Math.toRadians((r.nextDouble() * 2.0D - 1.0D) * halfAngleDeg);
             double d = minD + r.nextDouble() * (maxD - minD);
             Vec3 dir = rotate(hl, ang);
@@ -197,6 +202,7 @@ public final class HorrorEvents {
                                  int maxLight, BlockPos near, double nearRadius) {
         RandomSource r = p.getRandom();
         Vec3 eye = p.getEyePosition();
+        double[] dm = peekDims(v);
         double[][] offs = {{0, 0}, {0.5, 0}, {-0.5, 0}, {0, 0.5}, {0, -0.5}};
         for (int i = 0; i < 140; i++) {
             double x, z;
@@ -220,8 +226,8 @@ public final class HorrorEvents {
                 Vec3 feet = new Vec3(gp.getX() + 0.5D + o[0], gp.getY(), gp.getZ() + 0.5D + o[1]);
                 double hd = Math.sqrt((feet.x - p.getX()) * (feet.x - p.getX()) + (feet.z - p.getZ()) * (feet.z - p.getZ()));
                 if (hd < 3.0D) continue;
-                if (cosToEye(p, feet, v.hover + v.height * 0.6D) < 0.15D) continue; // delante del jugador
-                int vis = HorrorUtil.visibleSamples(l, eye, p, feet, v.hover, v.height, v.height * v.aspect);
+                if (cosToEye(p, feet, dm[0] + dm[1] * 0.6D) < 0.15D) continue; // delante del jugador
+                int vis = HorrorUtil.visibleSamples(l, eye, p, feet, dm[0], dm[1], dm[2]);
                 if (vis >= 1 && vis <= 3) return feet;
             }
         }
@@ -252,13 +258,13 @@ public final class HorrorEvents {
         HorrorVariant v = pick(r, W_STARE, st, night);
         double minD = minDist(st, night);
         double maxD = Math.min(48.0D, minD + (night ? 18.0D : 26.0D));
-        int maxLight = night ? 10 : 15;
+        int maxLight = night ? 12 : 15;
         Vec3 pos = findVisible(p, l, v, minD, maxD, 40.0D, maxLight, 4);
         if (pos == null) pos = findVisible(p, l, v, minD, maxD, 75.0D, maxLight, 3);
         if (pos == null) return false;
         int chain = (night && HorrorConfig.ESCALATION.get() && r.nextInt(100) < 35) ? 1 + r.nextInt(3) : 0;
         spawn(p, l, st, v, HorrorMode.STARE, pos, chain, 1.0F);
-        if (night && active(p, l) < HorrorConfig.MAX_ENTITIES.get() && r.nextInt(100) < 25) {
+        if (night && active(p, l) < HorrorConfig.MAX_ENTITIES.get() && r.nextInt(100) < 40) {
             HorrorVariant v2 = pick(r, W_STARE, st, true);
             Vec3 pos2 = findVisible(p, l, v2, minD, maxD, 60.0D, maxLight, 3);
             if (pos2 != null && pos2.distanceToSqr(pos) > 16.0D) {
@@ -285,7 +291,7 @@ public final class HorrorEvents {
         double minD = Math.max(5.0D, minDist(st, night) * 0.45D);
         Vec3 pos = findPeek(p, l, v, minD, minD + 12.0D, night ? 9 : 11, null, 0.0D);
         if (pos == null) return false;
-        spawn(p, l, st, v, HorrorMode.PEEK, pos, 0, 1.0F);
+        spawnPeek(p, l, st, v, pos);
         return true;
     }
 
@@ -301,7 +307,7 @@ public final class HorrorEvents {
             HorrorVariant v = pick(r, W_DOOR, st, night);
             Vec3 pos = findPeek(p, l, v, 0.0D, 0.0D, 12, door, 2.5D);
             if (pos != null) {
-                spawn(p, l, st, v, HorrorMode.PEEK, pos, 0, 1.0F);
+                spawnPeek(p, l, st, v, pos);
                 return true;
             }
         }
@@ -357,7 +363,7 @@ public final class HorrorEvents {
         }
         pos = findPeek(p, l, v, 6.0D, 18.0D, 5, null, 0.0D);
         if (pos == null) return false;
-        spawn(p, l, st, v, HorrorMode.PEEK, pos, 0, 1.0F);
+        spawnPeek(p, l, st, v, pos);
         return true;
     }
 
@@ -497,6 +503,110 @@ public final class HorrorEvents {
                 if (!peripheral(pl, lv, st)) peek(pl, lv, st);
             });
         }
+        return true;
+    }
+
+    // ------------------------------------------------------------------ asomarse (solo la cabeza, despacio)
+
+    /** [hover, alto, ancho] del sprite usado para comprobar visibilidad: solo la cabeza en los planos 2D. */
+    private static double[] peekDims(HorrorVariant v) {
+        if (v.model) return new double[]{v.hover, v.height, v.height * v.aspect};
+        float hh = v.headHeight(1.0F);
+        return new double[]{HorrorEntity.HEAD_CENTER - hh / 2.0F, hh, v.headWidth(1.0F)};
+    }
+
+    /**
+     * Crea una presencia que se asoma: empieza oculta tras el obstaculo y sale lentamente hasta 'fin',
+     * donde queda a medias visible (solo la cabeza en las imagenes 2D).
+     */
+    static HorrorEntity spawnPeek(ServerPlayer p, ServerLevel l, PlayerState st, HorrorVariant v, Vec3 fin) {
+        RandomSource r = p.getRandom();
+        Vec3 eye = p.getEyePosition();
+        double[] dm = peekDims(v);
+        Vec3 f = new Vec3(fin.x - eye.x, 0.0D, fin.z - eye.z);
+        f = f.lengthSqr() < 1.0E-4D ? new Vec3(0.0D, 0.0D, 1.0D) : f.normalize();
+        Vec3 right = new Vec3(-f.z, 0.0D, f.x);
+        Vec3[] dirs = {right, right.scale(-1.0D), f};
+        Vec3 best = right;
+        double bestD = 0.9D;
+        search:
+        for (Vec3 d : dirs) {
+            for (double dist : new double[]{0.45D, 0.7D, 1.0D}) {
+                Vec3 hp = fin.add(d.scale(dist));
+                if (HorrorUtil.visibleSamples(l, eye, p, hp, dm[0], dm[1], dm[2]) == 0) {
+                    best = d;
+                    bestD = dist;
+                    break search;
+                }
+            }
+        }
+        Vec3 start = fin.add(best.scale(bestD));
+        HorrorEntity e = spawn(p, l, st, v, HorrorMode.PEEK, start, 0, 1.0F);
+        if (e != null) {
+            e.setPeekAnim(fin.x, fin.y, fin.z, (float) (best.x * bestD), 0.0F, (float) (best.z * bestD), 90 + r.nextInt(70));
+        }
+        return e;
+    }
+
+    /** Ventana de cristal: la cabeza sube lentamente desde debajo del alfeizar, al otro lado del vidrio. */
+    private static boolean window(ServerPlayer p, ServerLevel l, PlayerState st) {
+        boolean night = st.isNight(l);
+        if (!canSpawnMore(p, l, night)) return false;
+        BlockPos glass = findBlock(p, l, p.blockPosition(), 12, 3,
+                s -> s.getBlock() instanceof AbstractGlassBlock
+                        || (s.getBlock() instanceof IronBarsBlock && !s.is(Blocks.IRON_BARS)), 3.0D);
+        if (glass == null) return false;
+        RandomSource r = p.getRandom();
+        HorrorVariant v = pick(r, W_PEEK, st, night);
+        if (v.model) return false;
+        Vec3 pc = p.position();
+        Vec3 eye = p.getEyePosition();
+        double[] dm = peekDims(v);
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockPos out = glass.relative(d);
+            BlockPos in = glass.relative(d.getOpposite());
+            if (!l.getBlockState(out).getCollisionShape(l, out).isEmpty()) continue;
+            if (!l.getBlockState(in).getCollisionShape(l, in).isEmpty()) continue;
+            if (Vec3.atCenterOf(in).distanceToSqr(pc) > Vec3.atCenterOf(out).distanceToSqr(pc)) continue; // el jugador esta dentro
+            double fy = glass.getY() + 0.5D - HorrorEntity.HEAD_CENTER;
+            Vec3 fin = new Vec3(out.getX() + 0.5D - d.getStepX() * 0.40D, fy, out.getZ() + 0.5D - d.getStepZ() * 0.40D);
+            if (HorrorUtil.visibleSamples(l, eye, p, fin, dm[0], dm[1], dm[2]) < 3) continue;
+            Vec3 start = fin.add(0.0D, -1.2D, 0.0D);
+            HorrorEntity e = spawn(p, l, st, v, HorrorMode.PEEK, start, 0, 1.0F);
+            if (e == null) return false;
+            e.setPeekAnim(fin.x, fin.y, fin.z, 0.0F, -1.2F, 0.0F, 100 + r.nextInt(80));
+            return true;
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ persecucion
+
+    /** Una presencia (cualquiera) congela tu mirada 5 s con un mensaje y despues te persigue sin parar. Sin dano. */
+    private static boolean hunt(ServerPlayer p, ServerLevel l, PlayerState st) {
+        if (!HorrorConfig.HUNT_ENABLED.get() || !HorrorUtil.entitiesAllowed(l)) return false;
+        long now = l.getGameTime();
+        if (!HorrorUtil.forceDay) {
+            if (PlayerState.nights(p) < HorrorConfig.HUNT_MIN_NIGHT.get()) return false;
+            if (now - st.lastHunt < HorrorConfig.HUNT_COOLDOWN_MIN.get() * 1200L) return false;
+        }
+        RandomSource r = p.getRandom();
+        HorrorVariant[] all = HorrorVariant.values();
+        HorrorVariant v = all[r.nextInt(all.length)];
+        Vec3 pos = findVisible(p, l, v, 14.0D, 20.0D, 22.0D, 15, 5);
+        if (pos == null) pos = findVisible(p, l, v, 12.0D, 24.0D, 50.0D, 15, 4);
+        if (pos == null) return false;
+        for (HorrorEntity o : l.getEntitiesOfClass(HorrorEntity.class, p.getBoundingBox().inflate(96.0D),
+                e -> p.getUUID().equals(e.getOwnerId()))) {
+            o.discard(); // un solo cazador
+        }
+        HorrorEntity e = spawn(p, l, st, v, HorrorMode.STARE, pos, 0, 1.0F);
+        if (e == null) return false;
+        e.beginHunt(100);
+        st.lastHunt = now;
+        ModNetwork.send(p, ClientEffectPacket.LOCK, e.getId(), 100, "NO ESCAPAR\u00c1S NUNCA M\u00c1S DE M\u00cd");
+        p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.MUSIC));
+        p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.AMBIENT));
         return true;
     }
 

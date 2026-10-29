@@ -1,7 +1,7 @@
 package com.anexohorror.entity;
 
 public enum HorrorMode {
-    STARE, PEEK, PERIPHERAL, LOW;
+    STARE, PEEK, PERIPHERAL, LOW, HUNT;
 
     public static HorrorMode byId(int i) {
         HorrorMode[] v = values();

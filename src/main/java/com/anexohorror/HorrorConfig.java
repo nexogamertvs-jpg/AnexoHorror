@@ -15,6 +15,11 @@ public final class HorrorConfig {
     public static final ForgeConfigSpec.BooleanValue BLOCK_SLEEP;
     public static final ForgeConfigSpec.BooleanValue BED_SETS_SPAWN;
     public static final ForgeConfigSpec.BooleanValue NIGHT_ESCALATION;
+    public static final ForgeConfigSpec.BooleanValue HUNT_ENABLED;
+    public static final ForgeConfigSpec.DoubleValue HUNT_SPEED;
+    public static final ForgeConfigSpec.BooleanValue HUNT_BREAKS_BLOCKS;
+    public static final ForgeConfigSpec.IntValue HUNT_MIN_NIGHT;
+    public static final ForgeConfigSpec.IntValue HUNT_COOLDOWN_MIN;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -42,6 +47,16 @@ public final class HorrorConfig {
         BLOCK_SLEEP = b.comment("Impide dormir: cada intento provoca un screamer.").define("blockSleep", true);
         BED_SETS_SPAWN = b.comment("Aunque no puedas dormir, la cama sigue fijando tu punto de reaparicion.").define("bedSetsSpawn", true);
         NIGHT_ESCALATION = b.comment("Cada noche vivida aumenta un poco la frecuencia de eventos (hasta +96%).").define("nightEscalation", true);
+        b.pop();
+        b.push("hunt");
+        HUNT_ENABLED = b.comment("Evento de persecucion: una presencia congela tu mirada y despues te persigue hasta alcanzarte (sin dano, solo screamer).")
+                .define("enabled", true);
+        HUNT_SPEED = b.comment("Velocidad de la persecucion en bloques por tick (0.40 = 8 bloques/s; correr es ~5.6).")
+                .defineInRange("speed", 0.40D, 0.10D, 1.0D);
+        HUNT_BREAKS_BLOCKS = b.comment("Rompe bloques en su camino (solo si la regla mobGriefing esta activa).")
+                .define("breakBlocks", true);
+        HUNT_MIN_NIGHT = b.comment("A partir de que noche vivida puede ocurrir.").defineInRange("minNight", 2, 1, 50);
+        HUNT_COOLDOWN_MIN = b.comment("Minutos minimos entre persecuciones.").defineInRange("cooldownMinutes", 6, 1, 120);
         b.pop();
         SPEC = b.build();
     }

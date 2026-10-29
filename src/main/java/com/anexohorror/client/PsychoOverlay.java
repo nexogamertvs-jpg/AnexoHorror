@@ -66,6 +66,11 @@ public final class PsychoOverlay {
     static int scImage;
     static String scText;
 
+    // mirada congelada (persecucion)
+    static int lockTicks;
+    static int lockTotal;
+    static String lockText;
+
     // apagon y estatica
     static int blackTicks;
     static int blackTotal;
@@ -74,12 +79,26 @@ public final class PsychoOverlay {
 
     private static final Random RNG = new Random();
 
+    private static Boolean[] avail;
+
+    /** true si la textura existe en el jar (evita el cuadro negro y morado si falta algun archivo). */
+    static boolean available(int idx) {
+        if (avail == null) {
+            avail = new Boolean[TEX_COUNT];
+        }
+        if (avail[idx] == null) {
+            avail[idx] = Minecraft.getInstance().getResourceManager().getResource(TEX[idx]).isPresent();
+        }
+        return avail[idx];
+    }
+
     static void reset() {
         glitch = 0.0F;
         ambient = 0.0F;
         textTicks = 0;
         flashTicks = 0;
         scTicks = 0;
+        lockTicks = 0;
         blackTicks = 0;
         staticTicks = 0;
         SYMBOL_LIST.clear();
@@ -87,7 +106,7 @@ public final class PsychoOverlay {
 
     /** Fuerza del temblor de camara durante un screamer. */
     public static float screamerShake() {
-        return scTicks > 0 ? 1.0F : 0.0F;
+        return scTicks > 0 ? 1.0F : (lockTicks > 0 ? 0.5F : 0.0F);
     }
 
     @SubscribeEvent
@@ -103,6 +122,7 @@ public final class PsychoOverlay {
         renderText(g, w, h);
         renderStatic(g, w, h);
         renderFlash(g, w, h);
+        renderLock(g, w, h);
         renderScreamer(g, w, h);
         renderBlackout(g, w, h);
     }
@@ -156,8 +176,7 @@ public final class PsychoOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         long dt = mc.level.getDayTime();
-        long t = dt % 24000L;
-        if (t < 13000L || t >= 23000L) return;
+        long t = dt % 24000L; // siempre visible: de dia y de noche, del primer dia al ultimo
 
         Font font = mc.font;
         float s = Math.max(1.0F, h / 400.0F);
@@ -309,6 +328,23 @@ public final class PsychoOverlay {
             float fade = Math.min(1.0F, (age - 4) / 3.0F) * Math.min(1.0F, scTicks / 10.0F);
             horrorText(g, scText, w, h, h * 0.74F, 0.82F, fade, age);
         }
+    }
+
+    // ---------------------------------------------------------------- mirada congelada
+
+    private static void renderLock(GuiGraphics g, int w, int h) {
+        if (lockTicks <= 0 || lockText == null) return;
+        int age = lockTotal - lockTicks;
+        float k = Math.min(1.0F, age / 12.0F);
+        int bw = Math.max(4, w / 20);
+        for (int i = 0; i < 8; i++) { // vineta que se cierra
+            int c = argb((int) (150 * k * (8 - i) / 8.0F), 0x08, 0x00, 0x02);
+            g.fill(i * bw / 2, 0, (i + 1) * bw / 2, h, c);
+            g.fill(w - (i + 1) * bw / 2, 0, w - i * bw / 2, h, c);
+            g.fill(0, i * bw / 2, w, (i + 1) * bw / 2, c);
+            g.fill(0, h - (i + 1) * bw / 2, w, h - i * bw / 2, c);
+        }
+        horrorText(g, lockText, w, h, h * 0.78F, 0.86F, Math.min(1.0F, age / 4.0F) * Math.min(1.0F, lockTicks / 8.0F), age);
     }
 
     // ---------------------------------------------------------------- apagon y estatica

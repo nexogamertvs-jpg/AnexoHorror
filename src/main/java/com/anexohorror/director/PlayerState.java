@@ -38,6 +38,7 @@ public final class PlayerState {
     Vec3 lastPos = Vec3.ZERO;
     long silenceUntil;
     long lastSleepScare = -1000L;
+    long lastHunt = -1000000L;
     long now;
     HorrorVariant lastVariant;
     final ArrayDeque<EventType> recent = new ArrayDeque<>();
@@ -46,7 +47,7 @@ public final class PlayerState {
 
     PlayerState(ServerPlayer p) {
         this.player = p;
-        this.cooldown = 1200 + p.getRandom().nextInt(2400); // gracia inicial de 1 a 3 minutos
+        this.cooldown = 400 + p.getRandom().nextInt(800); // gracia inicial de 20 a 60 s
     }
 
     public void schedule(int delayTicks, Action a) {
@@ -87,8 +88,8 @@ public final class PlayerState {
         }
 
         if (--cooldown > 0) return;
-        triggerRandom(p, l);
-        cooldown = nextInterval(p, l);
+        boolean ok = triggerRandom(p, l);
+        cooldown = ok ? nextInterval(p, l) : 120;
     }
 
     static double nightFactor(ServerLevel l) {
@@ -121,28 +122,29 @@ public final class PlayerState {
         double dark = Mth.clamp((8 - light) / 8.0D, 0.0D, 1.0D);
         double intensity = (0.35D + 0.65D * night + 0.25D * dark) * HorrorConfig.INTENSITY.get();
         if (HorrorConfig.NIGHT_ESCALATION.get()) intensity *= 1.0D + Math.min(nights(p), 12) * 0.08D;
-        double dayBase = 2400 + r.nextInt(4800);   // 2 a 6 min
-        double nightBase = 700 + r.nextInt(2100);  // 35 s a 2.3 min
+        double dayBase = 1500 + r.nextInt(3000);   // 1.2 a 3.7 min (solo sonidos de dia)
+        double nightBase = 260 + r.nextInt(640);   // 13 a 45 s: la noche esta viva
         double base = HorrorUtil.lerp(dayBase, nightBase, night);
         double ticks = base / Math.max(0.1D, intensity);
         int roll = r.nextInt(100);
-        if (roll < 12) ticks = 100 + r.nextInt(200);     // rafaga: otro evento casi seguido
-        else if (roll < 20) ticks *= 2.0D;                // calma larga e impredecible
+        if (roll < 18) ticks = 100 + r.nextInt(200);     // rafaga: otro evento casi seguido
+        else if (roll < 23) ticks *= 2.0D;                // calma larga e impredecible
         if (idleTicks > 600) ticks *= 0.75D;              // el jugador quieto atrae mas atencion
         return (int) Math.max(80, ticks);
     }
 
-    private void triggerRandom(ServerPlayer p, ServerLevel l) {
+    private boolean triggerRandom(ServerPlayer p, ServerLevel l) {
         EnumMap<EventType, Double> w = weights(p, l);
         while (!w.isEmpty()) {
             EventType t = HorrorUtil.pickWeighted(p.getRandom(), w);
             if (HorrorEvents.run(t, p, l, this)) {
                 recent.addLast(t);
                 while (recent.size() > 6) recent.removeFirst();
-                return;
+                return true;
             }
             w.remove(t);
         }
+        return false;
     }
 
     EnumMap<EventType, Double> weights(ServerPlayer p, ServerLevel l) {
@@ -162,6 +164,13 @@ public final class PlayerState {
         w.put(EventType.FOOTSTEPS, fake ? (night ? 2.2D : 1.0D) * (idle ? 1.5D : 1.0D) : 0.0D);
         w.put(EventType.SILENCE, HorrorConfig.SILENCE_EVENTS.get() ? 1.0D + fear * 0.8D : 0.0D);
         if (HorrorUtil.isNightTime(l)) {
+            for (EventType t : new EventType[]{EventType.STARE, EventType.PERIPHERAL, EventType.PEEK, EventType.DOOR}) {
+                w.computeIfPresent(t, (k, v) -> v * 1.5D);          // mas presencias de noche
+            }
+            w.computeIfPresent(EventType.FAKE_SOUND, (k, v) -> v * 0.6D);
+            w.computeIfPresent(EventType.FOOTSTEPS, (k, v) -> v * 0.7D);
+            w.put(EventType.WINDOW, in ? 3.0D : 1.2D);
+            w.put(EventType.HUNT, 0.45D);
             w.put(EventType.BLACKOUT, 0.9D + fear * 0.6D);
             w.put(EventType.STATIC_BURST, 1.0D);
             w.put(EventType.FAR_CALL, HorrorConfig.FAKE_SOUNDS.get() ? 1.4D : 0.0D);

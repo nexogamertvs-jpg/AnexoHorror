@@ -13,6 +13,10 @@ import net.minecraftforge.fml.common.Mod;
 public final class CameraEffects {
     @SubscribeEvent
     public static void onAngles(ViewportEvent.ComputeCameraAngles event) {
+        if (PsychoClientTick.isLockActive()) { // mirada congelada: la camara no obedece al raton
+            event.setYaw(PsychoClientTick.lockYaw());
+            event.setPitch(PsychoClientTick.lockPitch());
+        }
         if (!ClientConfig.CAMERA_SHAKE.get()) return;
         float k = Math.max(PsychoOverlay.glitch * 0.6F, PsychoOverlay.screamerShake());
         if (k < 0.04F) return;

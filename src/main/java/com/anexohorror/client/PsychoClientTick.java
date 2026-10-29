@@ -39,6 +39,17 @@ public final class PsychoClientTick {
     private static int lastFlash = -1;
     private static int tinnitusIn = -1;
 
+    // mirada congelada
+    private static int lockEntityId = -1;
+    private static int lockWait;
+    private static boolean lockActive;
+    private static float lockYaw;
+    private static float lockPitch;
+
+    public static boolean isLockActive() { return lockActive; }
+    public static float lockYaw() { return lockYaw; }
+    public static float lockPitch() { return lockPitch; }
+
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -50,6 +61,8 @@ public final class PsychoClientTick {
             wasInView = false;
             flashCountdown = -1;
             tinnitusIn = -1;
+            lockActive = false;
+            lockEntityId = -1;
             PsychoOverlay.reset();
             return;
         }
@@ -62,6 +75,7 @@ public final class PsychoClientTick {
 
         // ---- mirada hacia presencias
         float best = 0.0F;
+        float hunt = 0.0F;
         Vec3 eye = p.getEyePosition();
         Vec3 look = p.getLookAngle();
         for (Entity en : mc.level.entitiesForRendering()) {
@@ -70,6 +84,7 @@ public final class PsychoClientTick {
             Vec3 to = he.position().add(0.0D, he.spriteHover() + he.spriteHeight() * 0.6D, 0.0D).subtract(eye);
             double d = to.length();
             if (d > 64.0D || d < 0.5D) continue;
+            if (he.getMode() == HorrorMode.HUNT) hunt = Math.max(hunt, (float) (1.0D - d / 45.0D)); // te persigue: el miedo sube aunque no mires
             double dot = look.dot(to.scale(1.0D / d));
             if (dot < 0.6D || !p.hasLineOfSight(he)) continue;
             float prox = (float) (1.0D - d / 64.0D);
@@ -77,6 +92,7 @@ public final class PsychoClientTick {
             if (he.getVariant().model) strength *= 1.3F;
             best = Math.max(best, strength);
         }
+        best = Math.max(best, hunt * 0.9F);
         intensity += (best - intensity) * 0.08F;
         stare = best > 0.15F ? Math.min(200, stare + 1) : Math.max(0, stare - 2);
         float g = Math.min(1.0F, intensity * (0.4F + 0.6F * stare / 200.0F));
@@ -97,6 +113,30 @@ public final class PsychoClientTick {
         }
         wasInView = inView;
         if (PsychoOverlay.textTicks > 0) PsychoOverlay.textTicks--;
+
+        // ---- mirada congelada: la camara queda fija en la presencia
+        lockActive = false;
+        if (PsychoOverlay.lockTicks > 0) {
+            Entity ent = mc.level.getEntity(lockEntityId);
+            if (ent instanceof HorrorEntity he && mc.screen == null) {
+                Vec3 target = he.position().add(0.0D, he.spriteHover() + he.spriteHeight() * 0.75D, 0.0D);
+                Vec3 d = target.subtract(p.getEyePosition());
+                double hd = Math.sqrt(d.x * d.x + d.z * d.z);
+                float yaw = (float) (net.minecraft.util.Mth.atan2(d.z, d.x) * (180.0D / Math.PI)) - 90.0F;
+                float pitch = (float) -(net.minecraft.util.Mth.atan2(d.y, hd) * (180.0D / Math.PI));
+                lockYaw = net.minecraft.util.Mth.rotLerp(0.45F, p.getYRot(), yaw);
+                lockPitch = net.minecraft.util.Mth.lerp(0.45F, p.getXRot(), pitch);
+                p.setYRot(lockYaw);
+                p.setXRot(lockPitch);
+                p.yRotO = lockYaw;
+                p.xRotO = lockPitch;
+                lockActive = true;
+                PsychoOverlay.lockTicks--;
+                if (PsychoOverlay.lockTicks % 20 == 0) play(ModSounds.HEARTBEAT.get(), 0.9F, 0.9F);
+            } else if (++lockWait > 40) {
+                PsychoOverlay.lockTicks = 0; // la entidad no llego: se cancela
+            }
+        }
 
         // ---- temporizadores de efectos
         if (PsychoOverlay.scTicks > 0) PsychoOverlay.scTicks--;
@@ -165,11 +205,12 @@ public final class PsychoClientTick {
     /** Screamer al intentar dormir: imagen entera + mensaje + chillido, impacto y acufeno. image = -1 -> al azar. */
     public static void triggerScreamer(int image, String message) {
         int img = image;
-        if (img < 0 || img >= PsychoOverlay.TEX_COUNT) {
+        if (img < 0 || img >= PsychoOverlay.TEX_COUNT || !PsychoOverlay.available(img)) {
             int tries = 0;
             do {
                 img = RNG.nextInt(PsychoOverlay.TEX_COUNT);
-            } while (RECENT_SC.contains(img) && ++tries < 20);
+            } while ((RECENT_SC.contains(img) || !PsychoOverlay.available(img)) && ++tries < 40);
+            if (!PsychoOverlay.available(img)) img = 0; // ultimo recurso
         }
         RECENT_SC.addLast(img);
         while (RECENT_SC.size() > 3) RECENT_SC.removeFirst();
@@ -179,6 +220,15 @@ public final class PsychoClientTick {
         play(ModSounds.SCREAMER.get(), 0.95F + RNG.nextFloat() * 0.1F, 1.0F);
         play(ModSounds.IMPACT.get(), 1.0F, 0.9F);
         tinnitusIn = 45;
+    }
+
+    /** La mirada del jugador queda congelada en la entidad 'entityId' durante 'ticks' con un mensaje. */
+    public static void triggerLock(int entityId, int ticks, String message) {
+        lockEntityId = entityId;
+        lockWait = 0;
+        PsychoOverlay.lockTotal = PsychoOverlay.lockTicks = Math.max(20, ticks);
+        PsychoOverlay.lockText = (message == null || message.isEmpty()) ? "NO ESCAPAR\u00c1S NUNCA M\u00c1S DE M\u00cd" : message;
+        play(ModSounds.IMPACT.get(), 0.8F, 1.0F);
     }
 
     public static void triggerBlackout(int ticks) {
