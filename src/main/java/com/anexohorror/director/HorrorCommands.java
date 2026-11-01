@@ -37,7 +37,10 @@ public final class HorrorCommands {
                         .executes(c -> spawn(c.getSource(), -1))
                         .then(Commands.argument("variant", IntegerArgumentType.integer(0, HorrorVariant.values().length - 1))
                                 .executes(c -> spawn(c.getSource(), IntegerArgumentType.getInteger(c, "variant")))))
-                .then(Commands.literal("status").executes(c -> status(c.getSource()))));
+                .then(Commands.literal("status").executes(c -> status(c.getSource())))
+                .then(Commands.literal("nights")
+                        .then(Commands.argument("n", IntegerArgumentType.integer(0, 1000))
+                                .executes(c -> setNights(c.getSource(), IntegerArgumentType.getInteger(c, "n"))))));
     }
 
     private static int runEvent(CommandSourceStack src, String name) {
@@ -90,6 +93,21 @@ public final class HorrorCommands {
             return 0;
         } catch (Exception ex) {
             src.sendFailure(Component.literal("Solo un jugador puede ejecutar esto."));
+            return 0;
+        }
+    }
+
+    /** /anexohorror nights 0 -> la proxima noche vuelve a salir el video de la primera noche. */
+    private static int setNights(CommandSourceStack src, int n) {
+        try {
+            ServerPlayer p = src.getPlayerOrException();
+            var data = p.getPersistentData();
+            var persisted = data.getCompound("PlayerPersisted");
+            persisted.putInt("anexohorror_nights", n);
+            data.put("PlayerPersisted", persisted);
+            src.sendSuccess(() -> Component.literal("Noches vividas: " + n), false);
+            return 1;
+        } catch (Exception ex) {
             return 0;
         }
     }

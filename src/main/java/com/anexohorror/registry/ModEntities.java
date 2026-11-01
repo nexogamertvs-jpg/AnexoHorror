@@ -2,6 +2,7 @@ package com.anexohorror.registry;
 
 import com.anexohorror.AnexoHorror;
 import com.anexohorror.entity.HorrorEntity;
+import com.anexohorror.entity.OtherEntity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraftforge.registries.DeferredRegister;
@@ -20,6 +21,14 @@ public final class ModEntities {
                     .noSave()
                     .fireImmune()
                     .build(AnexoHorror.MODID + ":watcher"));
+
+    public static final RegistryObject<EntityType<OtherEntity>> OTHER = ENTITIES.register("other",
+            () -> EntityType.Builder.<OtherEntity>of(OtherEntity::new, MobCategory.MONSTER)
+                    .sized(1.6F, 3.0F)
+                    .clientTrackingRange(10)
+                    .noSave()
+                    .fireImmune()
+                    .build(AnexoHorror.MODID + ":other"));
 
     private ModEntities() {}
 }

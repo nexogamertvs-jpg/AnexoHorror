@@ -14,6 +14,7 @@ public final class ClientSetup {
     @SubscribeEvent
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntities.WATCHER.get(), HorrorRenderer::new);
+        event.registerEntityRenderer(ModEntities.OTHER.get(), OtherRenderer::new);
     }
 
     @SubscribeEvent

@@ -14,6 +14,7 @@ public enum HorrorVariant {
     SLENDER("slender", 3.00F, 0.00F, 0.70F),    // modelo 3D: criatura de piernas largas sentada en su silla
     STALKER("stalker", 194, 448, 3.00F, 0.00F, 0.25F, 0.00F, 0.75F, 0.14F); // silueta negra de garras largas
 
+    public final String id;
     public final ResourceLocation texture;
     public final float height;
     public final float hover;
@@ -29,6 +30,7 @@ public enum HorrorVariant {
     public final float glowPadY;
 
     HorrorVariant(String name, int pxW, int pxH, float height, float hover, float u0, float v0, float u1, float v1) {
+        this.id = name;
         this.texture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/" + name + ".png");
         this.height = height;
         this.hover = hover;
@@ -47,6 +49,7 @@ public enum HorrorVariant {
 
     /** Variante 3D: aspect = ancho aproximado / alto, usado solo para comprobar visibilidad. */
     HorrorVariant(String name, float height, float hover, float aspect) {
+        this.id = name;
         this.texture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/" + name + ".png");
         this.height = height;
         this.hover = hover;

@@ -138,6 +138,36 @@ public final class PsychoClientTick {
             }
         }
 
+        // ---- titulo del dia con sangre
+        if (PsychoOverlay.titleTicks > 0) {
+            int age = PsychoOverlay.titleTotal - PsychoOverlay.titleTicks;
+            PsychoOverlay.titleTicks--;
+            if (age < 100 && PsychoOverlay.DRIPS.size() < 64 && RNG.nextFloat() < 0.6F) {
+                PsychoOverlay.Drip d = new PsychoOverlay.Drip();
+                boolean fromText = RNG.nextFloat() < 0.45F;
+                d.x = fromText ? 0.2F + RNG.nextFloat() * 0.6F : RNG.nextFloat();
+                d.y0 = fromText ? 0.34F + RNG.nextFloat() * 0.10F : 0.0F;
+                d.y = d.y0;
+                d.speed = 0.002F + RNG.nextFloat() * 0.006F;
+                d.w = 1.5F + RNG.nextFloat() * 3.5F;
+                d.delay = RNG.nextInt(7);
+                PsychoOverlay.DRIPS.add(d);
+            }
+        }
+        if (PsychoOverlay.bloodTicks > 0) {
+            PsychoOverlay.bloodTicks--;
+            for (int i = PsychoOverlay.DRIPS.size() - 1; i >= 0; i--) {
+                PsychoOverlay.Drip d = PsychoOverlay.DRIPS.get(i);
+                if (d.delay > 0) { d.delay--; continue; }
+                d.speed = Math.min(d.speed * 1.015F, 0.02F);
+                d.y += d.speed;
+                if (d.y > 1.08F) PsychoOverlay.DRIPS.remove(i);
+            }
+        } else if (!PsychoOverlay.DRIPS.isEmpty()) {
+            PsychoOverlay.DRIPS.clear();
+            PsychoOverlay.SPLATS.clear();
+        }
+
         // ---- temporizadores de efectos
         if (PsychoOverlay.scTicks > 0) PsychoOverlay.scTicks--;
         if (PsychoOverlay.blackTicks > 0) PsychoOverlay.blackTicks--;
@@ -220,6 +250,34 @@ public final class PsychoClientTick {
         play(ModSounds.SCREAMER.get(), 0.95F + RNG.nextFloat() * 0.1F, 1.0F);
         play(ModSounds.IMPACT.get(), 1.0F, 0.9F);
         tinnitusIn = 45;
+    }
+
+    /** Al empezar cada noche (menos la primera): "DIA N" en rojo con gotas de sangre. */
+    public static void triggerNightTitle(int day) {
+        triggerTitle("D\u00cdA " + day);
+    }
+
+    /** Titulo rojo con salpicaduras y gotas de sangre. */
+    public static void triggerTitle(String text) {
+        PsychoOverlay.titleText = text;
+        PsychoOverlay.titleTicks = PsychoOverlay.titleTotal = 150;
+        PsychoOverlay.bloodTicks = 210;
+        PsychoOverlay.DRIPS.clear();
+        PsychoOverlay.SPLATS.clear();
+        for (int i = 0; i < 7; i++) {
+            PsychoOverlay.Splat sp = new PsychoOverlay.Splat();
+            sp.x = RNG.nextFloat();
+            sp.y = RNG.nextFloat() * 0.9F;
+            sp.size = 0.8F + RNG.nextFloat() * 1.6F;
+            for (int k = 0; k < sp.ox.length; k++) {
+                sp.ox[k] = RNG.nextInt(23) - 11;
+                sp.oy[k] = RNG.nextInt(23) - 11;
+                sp.os[k] = 2 + RNG.nextInt(6);
+            }
+            PsychoOverlay.SPLATS.add(sp);
+        }
+        play(ModSounds.IMPACT.get(), 0.9F, 0.7F);
+        play(ModSounds.HEARTBEAT.get(), 0.9F, 0.8F);
     }
 
     /** La mirada del jugador queda congelada en la entidad 'entityId' durante 'ticks' con un mensaje. */

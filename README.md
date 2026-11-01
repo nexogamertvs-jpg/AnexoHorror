@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.6.0.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.8.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -74,3 +74,13 @@ silencios y escalada nocturna.
 - **Mas presencias**: intervalos nocturnos mas cortos, mas intentos de colocacion y reintento rapido si no hubo sitio.
 - **Screamers**: si falta alguna textura se salta (ya no sale el cuadro negro y morado). Ojo: la subida web de GitHub admite 100 archivos por vez.
 - La carpeta `originals/` ya no va en el paquete (para no pasar de 100 archivos).
+
+## v1.7.0
+- **El video VHS solo sale la PRIMERA noche** de cada jugador (contador de noches vividas). En las demas noches, al empezar, aparece "DIA N" en rojo con salpicaduras y gotas de sangre que resbalan por la pantalla (opcion `nightTitle`). Para volver a ver el video: `/anexohorror nights 0` y espera al anochecer (o `/ahc intro`).
+- **Huevos generadores** de cada entidad (pestana creativa "AnexoHorror"): El Enmascarado, El Descarnado, El Sombrerero, El Encorvado, El Cornudo, El Gritón, El Habitante del Rincón (3D) y El Acechador. Clic derecho en un bloque: aparece, se queda ~2 min y solo se va si te acercas. Los nombres estan en `assets/anexohorror/lang/*.json`.
+
+## v1.8.0
+- **Historia en cofres**: 10 registros cronologicos del Anexo 7 (libros "Registro 01..10", fechados). Aparecen en cofres "Archivo del Anexo" a 30-70 bloques; al abrir uno, 3-8 min despues aparece el siguiente. Progreso por jugador. Config `[story] chests`.
+- **El Otro** (jefe final, el modelo 3D): muy poco comun (peso 0.12, desde la noche 3, 20 min entre apariciones). Tienes 120 s para matarlo antes de que la grieta lo reclame. 350 de vida, armadura, ataca de verdad (oscuridad al golpear) y se detiene a hablar por el chat al llegar al 90/75/60/45/30/15 % de vida. Barra de jefe con vida y cuenta atras. Solo recibe dano de quien lo golpea (sin trampas). Config `[other]`. Prueba: `/anexohorror event other` o el huevo "El Otro".
+- Al morir suelta **El Indice** (estrella del Nether renombrada, lore "La grieta cada vez se fractura mas") y muestra el titulo "EL OTRO HA CAIDO".
+- El modelo 3D ya no sale como presencia comun.

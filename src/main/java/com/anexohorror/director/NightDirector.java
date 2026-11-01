@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 /**
- * Cronometro del anochecer: el SERVIDOR vigila el reloj del mundo y, en el instante exacto en que
+ * Cronometro del anochecer (primera noche: video VHS; las demas: titulo con el dia): el SERVIDOR vigila el reloj del mundo y, en el instante exacto en que
  * empieza la noche (tick 13000 del ciclo de 24000), manda al jugador el video VHS.
  * Asi no depende de la configuracion ni del reloj del cliente.
  */
@@ -37,8 +37,13 @@ public final class NightDirector {
     public static void nightfall(ServerLevel sl) {
         for (ServerPlayer p : sl.players()) {
             if (!p.isAlive() || p.isSpectator()) continue;
-            HorrorDirector.stateFor(p).onNightfall(p, sl);
-            ModNetwork.send(p, ClientEffectPacket.VIDEO, 0, 0, "");
+            HorrorDirector.stateFor(p).onNightfall(p, sl); // cuenta la noche
+            if (PlayerState.nights(p) <= 1) {
+                ModNetwork.send(p, ClientEffectPacket.VIDEO, 0, 0, "");      // primera noche: video VHS de advertencia
+            } else {
+                long day = sl.getDayTime() / 24000L + 1L;                  // demas noches: titulo con el dia
+                ModNetwork.send(p, ClientEffectPacket.NIGHT_TITLE, (int) Math.min(day, 100000L), 0, "");
+            }
         }
     }
 

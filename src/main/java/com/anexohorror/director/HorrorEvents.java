@@ -4,6 +4,7 @@ import com.anexohorror.HorrorConfig;
 import com.anexohorror.entity.HorrorEntity;
 import com.anexohorror.entity.HorrorMode;
 import com.anexohorror.entity.HorrorVariant;
+import com.anexohorror.entity.OtherEntity;
 import com.anexohorror.net.ClientEffectPacket;
 import com.anexohorror.net.ModNetwork;
 import com.anexohorror.registry.ModEntities;
@@ -39,12 +40,12 @@ import java.util.function.Predicate;
 public final class HorrorEvents {
 
     // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, SLENDER, STALKER
-    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 2.0, 2.5};
-    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 1.5, 2.0};
-    private static final double[] W_PEEK = {4.0, 3.0, 3.0, 3.0, 3.0, 3.0, 1.0, 3.0};
-    private static final double[] W_DOOR = {3.0, 2.5, 2.5, 2.0, 2.5, 2.5, 1.0, 2.5};
+    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 0.0, 2.5};
+    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 0.0, 2.0};
+    private static final double[] W_PEEK = {4.0, 3.0, 3.0, 3.0, 3.0, 3.0, 0.0, 3.0};
+    private static final double[] W_DOOR = {3.0, 2.5, 2.5, 2.0, 2.5, 2.5, 0.0, 2.5};
     private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0};
-    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 2.0, 2.0};
+    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 0.0, 2.0};
 
     private static final HorrorVariant[] VARIANTS = HorrorVariant.values();
 
@@ -65,6 +66,7 @@ public final class HorrorEvents {
             case FAKE_CHAT -> fakeChat(p, l, st);
             case WINDOW -> window(p, l, st);
             case HUNT -> hunt(p, l, st);
+            case OTHER -> other(p, l, st);
         };
     }
 
@@ -148,6 +150,19 @@ public final class HorrorEvents {
         float pitch = 0.85F + r.nextFloat() * 0.3F;
         l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, vol, pitch);
         st.lastVariant = v;
+        return e;
+    }
+
+    /** Huevo generador: aparece donde clicas, se queda ~2 min y solo se va si te acercas. */
+    public static HorrorEntity spawnFromEgg(ServerPlayer p, ServerLevel l, HorrorVariant v, Vec3 pos) {
+        HorrorEntity e = ModEntities.WATCHER.get().create(l);
+        if (e == null) return null;
+        e.setup(p.getUUID(), v, HorrorMode.STARE, 1.0F, 2400, 2400, 2400, 0, 2.5D, 0);
+        e.setAllowDay(true);
+        float yaw = (float) (Mth.atan2(p.getZ() - pos.z, p.getX() - pos.x) * (180.0D / Math.PI)) - 90.0F;
+        e.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
+        l.addFreshEntity(e);
+        l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
         return e;
     }
 
@@ -592,7 +607,10 @@ public final class HorrorEvents {
         }
         RandomSource r = p.getRandom();
         HorrorVariant[] all = HorrorVariant.values();
-        HorrorVariant v = all[r.nextInt(all.length)];
+        HorrorVariant v;
+        do {
+            v = all[r.nextInt(all.length)];
+        } while (v == HorrorVariant.SLENDER); // el 3D es "El Otro", aparte
         Vec3 pos = findVisible(p, l, v, 14.0D, 20.0D, 22.0D, 15, 5);
         if (pos == null) pos = findVisible(p, l, v, 12.0D, 24.0D, 50.0D, 15, 4);
         if (pos == null) return false;
@@ -608,6 +626,51 @@ public final class HorrorEvents {
         p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.MUSIC));
         p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.AMBIENT));
         return true;
+    }
+
+    // ------------------------------------------------------------------ El Otro (jefe final)
+
+    /** Crea a El Otro en 'pos' y empieza el combate para 'p'. */
+    public static OtherEntity spawnOther(ServerPlayer p, ServerLevel l, Vec3 pos) {
+        OtherEntity e = ModEntities.OTHER.get().create(l);
+        if (e == null) return null;
+        float yaw = (float) (Mth.atan2(p.getZ() - pos.z, p.getX() - pos.x) * (180.0D / Math.PI)) - 90.0F;
+        e.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
+        e.startFight(p);
+        l.addFreshEntity(e);
+        l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, 2.0F, 0.7F);
+        l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CREATURE_CALL.get(), SoundSource.HOSTILE, 3.0F, 0.9F);
+        ModNetwork.send(p, ClientEffectPacket.TITLE, 0, 0, "EL OTRO");
+        return e;
+    }
+
+    /** Muy poco comun: aparece El Otro y tienes 120 s para matarlo. */
+    private static boolean other(ServerPlayer p, ServerLevel l, PlayerState st) {
+        if (!HorrorConfig.OTHER_ENABLED.get() || !HorrorUtil.entitiesAllowed(l)) return false;
+        if (l.getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL) return false;
+        long now = l.getGameTime();
+        if (!HorrorUtil.forceDay) {
+            if (PlayerState.nights(p) < HorrorConfig.OTHER_MIN_NIGHT.get()) return false;
+            if (now - st.lastOther < HorrorConfig.OTHER_COOLDOWN_MIN.get() * 1200L) return false;
+        }
+        if (!l.getEntitiesOfClass(OtherEntity.class, p.getBoundingBox().inflate(160.0D), e -> true).isEmpty()) return false;
+        for (int i = 0; i < 12; i++) {
+            Vec3 pos = findVisible(p, l, HorrorVariant.SLENDER, 14.0D, 22.0D, 45.0D, 15, 3);
+            if (pos == null) continue;
+            OtherEntity probe = ModEntities.OTHER.get().create(l);
+            if (probe == null) return false;
+            probe.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+            if (!l.noCollision(probe)) continue; // hueco insuficiente para su tamano
+            for (HorrorEntity o : l.getEntitiesOfClass(HorrorEntity.class, p.getBoundingBox().inflate(96.0D),
+                    e2 -> p.getUUID().equals(e2.getOwnerId()))) {
+                o.discard();
+            }
+            spawnOther(p, l, pos);
+            st.lastOther = now;
+            p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.MUSIC));
+            return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ eventos nocturnos nuevos

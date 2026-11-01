@@ -1,3 +1,15 @@
 {
-  "entity.anexohorror.watcher": "The Watcher"
+  "entity.anexohorror.watcher": "The Watcher",
+  "item.anexohorror.egg_peeker": "Spawn Egg: The Masked One",
+  "item.anexohorror.egg_grin": "Spawn Egg: The Gutted One",
+  "item.anexohorror.egg_smiler": "Spawn Egg: The Hatter",
+  "item.anexohorror.egg_drawn": "Spawn Egg: The Hunched One",
+  "item.anexohorror.egg_crawler": "Spawn Egg: The Horned One",
+  "item.anexohorror.egg_eye": "Spawn Egg: The Screamer",
+  "item.anexohorror.egg_slender": "Spawn Egg: The Other",
+  "item.anexohorror.egg_stalker": "Spawn Egg: The Stalker",
+  "itemGroup.anexohorror": "AnexoHorror",
+  "item.anexohorror.egg.tooltip": "Right-click a block: it appears.",
+  "item.anexohorror.egg.tooltip2": "Stays 2 min, leaves only if you get close. (The Other: boss fight)",
+  "entity.anexohorror.other": "The Other"
 }

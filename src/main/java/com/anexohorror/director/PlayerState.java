@@ -39,6 +39,7 @@ public final class PlayerState {
     long silenceUntil;
     long lastSleepScare = -1000L;
     long lastHunt = -1000000L;
+    long lastOther = -1000000L;
     long now;
     HorrorVariant lastVariant;
     final ArrayDeque<EventType> recent = new ArrayDeque<>();
@@ -74,6 +75,7 @@ public final class PlayerState {
         if (!HorrorConfig.ENABLED.get()) return;
         if (p.isSpectator() || !p.isAlive() || l.dimension() != Level.OVERWORLD) return;
 
+        if (now % 200L == 0L) StoryChests.tick(p, l);
         fear = Math.max(0.0D, fear - 0.00015D);
         bold += (0.3D - bold) * 0.0002D;
         jumpy += (0.3D - jumpy) * 0.0002D;
@@ -171,6 +173,7 @@ public final class PlayerState {
             w.computeIfPresent(EventType.FOOTSTEPS, (k, v) -> v * 0.7D);
             w.put(EventType.WINDOW, in ? 3.0D : 1.2D);
             w.put(EventType.HUNT, 0.45D);
+            w.put(EventType.OTHER, (HorrorConfig.OTHER_ENABLED.get() && nights(p) >= HorrorConfig.OTHER_MIN_NIGHT.get()) ? 0.12D : 0.0D);
             w.put(EventType.BLACKOUT, 0.9D + fear * 0.6D);
             w.put(EventType.STATIC_BURST, 1.0D);
             w.put(EventType.FAR_CALL, HorrorConfig.FAKE_SOUNDS.get() ? 1.4D : 0.0D);

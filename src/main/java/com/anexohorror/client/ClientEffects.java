@@ -13,6 +13,10 @@ public final class ClientEffects {
             case ClientEffectPacket.SCREAMER -> PsychoClientTick.triggerScreamer(a, text);
             case ClientEffectPacket.BLACKOUT -> PsychoClientTick.triggerBlackout(a);
             case ClientEffectPacket.STATIC -> PsychoClientTick.triggerStatic(a);
+            case ClientEffectPacket.NIGHT_TITLE -> {
+                if (ClientConfig.NIGHT_TITLE.get()) PsychoClientTick.triggerNightTitle(a);
+            }
+            case ClientEffectPacket.TITLE -> PsychoClientTick.triggerTitle(text);
             case ClientEffectPacket.LOCK -> PsychoClientTick.triggerLock(a, b, text);
             default -> { }
         }

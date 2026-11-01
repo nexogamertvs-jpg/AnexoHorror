@@ -1,3 +1,15 @@
 {
-  "entity.anexohorror.watcher": "El Observador"
+  "entity.anexohorror.watcher": "El Observador",
+  "item.anexohorror.egg_peeker": "Huevo: El Enmascarado",
+  "item.anexohorror.egg_grin": "Huevo: El Descarnado",
+  "item.anexohorror.egg_smiler": "Huevo: El Sombrerero",
+  "item.anexohorror.egg_drawn": "Huevo: El Encorvado",
+  "item.anexohorror.egg_crawler": "Huevo: El Cornudo",
+  "item.anexohorror.egg_eye": "Huevo: El Gritón",
+  "item.anexohorror.egg_slender": "Huevo: El Otro",
+  "item.anexohorror.egg_stalker": "Huevo: El Acechador",
+  "itemGroup.anexohorror": "AnexoHorror",
+  "item.anexohorror.egg.tooltip": "Clic derecho en un bloque: aparece.",
+  "item.anexohorror.egg.tooltip2": "Persiste 2 min y solo se va si te acercas. (El Otro: combate de jefe)",
+  "entity.anexohorror.other": "El Otro"
 }

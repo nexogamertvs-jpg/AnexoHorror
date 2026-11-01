@@ -11,6 +11,7 @@ public final class ModEvents {
     @SubscribeEvent
     public static void attributes(EntityAttributeCreationEvent event) {
         event.put(ModEntities.WATCHER.get(), Mob.createMobAttributes().build());
+        event.put(ModEntities.OTHER.get(), com.anexohorror.entity.OtherEntity.createAttributes().build());
     }
 
     private ModEvents() {}

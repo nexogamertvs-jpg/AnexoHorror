@@ -15,6 +15,13 @@ public final class HorrorConfig {
     public static final ForgeConfigSpec.BooleanValue BLOCK_SLEEP;
     public static final ForgeConfigSpec.BooleanValue BED_SETS_SPAWN;
     public static final ForgeConfigSpec.BooleanValue NIGHT_ESCALATION;
+    public static final ForgeConfigSpec.BooleanValue STORY_CHESTS;
+    public static final ForgeConfigSpec.BooleanValue OTHER_ENABLED;
+    public static final ForgeConfigSpec.IntValue OTHER_MIN_NIGHT;
+    public static final ForgeConfigSpec.DoubleValue OTHER_HEALTH;
+    public static final ForgeConfigSpec.DoubleValue OTHER_DAMAGE;
+    public static final ForgeConfigSpec.IntValue OTHER_SECONDS;
+    public static final ForgeConfigSpec.IntValue OTHER_COOLDOWN_MIN;
     public static final ForgeConfigSpec.BooleanValue HUNT_ENABLED;
     public static final ForgeConfigSpec.DoubleValue HUNT_SPEED;
     public static final ForgeConfigSpec.BooleanValue HUNT_BREAKS_BLOCKS;
@@ -47,6 +54,19 @@ public final class HorrorConfig {
         BLOCK_SLEEP = b.comment("Impide dormir: cada intento provoca un screamer.").define("blockSleep", true);
         BED_SETS_SPAWN = b.comment("Aunque no puedas dormir, la cama sigue fijando tu punto de reaparicion.").define("bedSetsSpawn", true);
         NIGHT_ESCALATION = b.comment("Cada noche vivida aumenta un poco la frecuencia de eventos (hasta +96%).").define("nightEscalation", true);
+        b.pop();
+        b.push("story");
+        STORY_CHESTS = b.comment("Cofres aleatorios con los registros de la historia del Anexo (uno nuevo cada vez que abres el anterior).")
+                .define("chests", true);
+        b.pop();
+        b.push("other");
+        OTHER_ENABLED = b.comment("El Otro: jefe final muy poco comun. Dura 120 s por aparicion; al matarlo suelta El Indice.")
+                .define("enabled", true);
+        OTHER_MIN_NIGHT = b.comment("A partir de que noche vivida puede aparecer.").defineInRange("minNight", 3, 1, 100);
+        OTHER_HEALTH = b.comment("Vida de El Otro (puntos; 20 = 10 corazones).").defineInRange("health", 350.0D, 20.0D, 5000.0D);
+        OTHER_DAMAGE = b.comment("Dano por golpe de El Otro.").defineInRange("damage", 8.0D, 1.0D, 100.0D);
+        OTHER_SECONDS = b.comment("Segundos que tienes para derrotarlo antes de que la grieta lo reclame.").defineInRange("seconds", 120, 20, 1800);
+        OTHER_COOLDOWN_MIN = b.comment("Minutos minimos entre apariciones.").defineInRange("cooldownMinutes", 20, 1, 600);
         b.pop();
         b.push("hunt");
         HUNT_ENABLED = b.comment("Evento de persecucion: una presencia congela tu mirada y despues te persigue hasta alcanzarte (sin dano, solo screamer).")

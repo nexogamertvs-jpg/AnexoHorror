@@ -66,6 +66,24 @@ public final class PsychoOverlay {
     static int scImage;
     static String scText;
 
+    // titulo de noche con gotas de sangre
+    static String titleText;
+    static int titleTicks;
+    static int titleTotal;
+    static int bloodTicks;
+    static final class Drip {
+        float x, y0, y, speed, w;
+        int delay;
+    }
+    static final class Splat {
+        float x, y, size;
+        final int[] ox = new int[9];
+        final int[] oy = new int[9];
+        final int[] os = new int[9];
+    }
+    static final List<Drip> DRIPS = new ArrayList<>();
+    static final List<Splat> SPLATS = new ArrayList<>();
+
     // mirada congelada (persecucion)
     static int lockTicks;
     static int lockTotal;
@@ -99,6 +117,10 @@ public final class PsychoOverlay {
         flashTicks = 0;
         scTicks = 0;
         lockTicks = 0;
+        titleTicks = 0;
+        bloodTicks = 0;
+        DRIPS.clear();
+        SPLATS.clear();
         blackTicks = 0;
         staticTicks = 0;
         SYMBOL_LIST.clear();
@@ -120,6 +142,8 @@ public final class PsychoOverlay {
         renderVhsHud(g, w, h);
         renderSymbols(g, w, h);
         renderText(g, w, h);
+        renderTitle(g, w, h);
+        renderBlood(g, w, h);
         renderStatic(g, w, h);
         renderFlash(g, w, h);
         renderLock(g, w, h);
@@ -327,6 +351,42 @@ public final class PsychoOverlay {
         if (age >= 5 && scText != null) {
             float fade = Math.min(1.0F, (age - 4) / 3.0F) * Math.min(1.0F, scTicks / 10.0F);
             horrorText(g, scText, w, h, h * 0.74F, 0.82F, fade, age);
+        }
+    }
+
+    // ---------------------------------------------------------------- titulo del dia + sangre
+
+    private static void renderTitle(GuiGraphics g, int w, int h) {
+        if (titleTicks <= 0 || titleText == null) return;
+        int age = titleTotal - titleTicks;
+        float a = Math.min(1.0F, age / 8.0F) * Math.min(1.0F, titleTicks / 30.0F);
+        g.fill(0, 0, w, h, argb((int) (45 * a), 0x60, 0x00, 0x00)); // el mundo se tine de rojo
+        horrorText(g, titleText, w, h, h * 0.34F, 0.5F, a, age);
+    }
+
+    private static void renderBlood(GuiGraphics g, int w, int h) {
+        if (bloodTicks <= 0) return;
+        float fade = Math.min(1.0F, bloodTicks / 30.0F);
+        for (Splat sp : SPLATS) { // salpicaduras
+            int cx = (int) (sp.x * w);
+            int cy = (int) (sp.y * h);
+            for (int i = 0; i < sp.ox.length; i++) {
+                int sz = Math.max(2, (int) (sp.os[i] * sp.size * h / 360.0F));
+                int px = cx + (int) (sp.ox[i] * sp.size * h / 360.0F);
+                int py = cy + (int) (sp.oy[i] * sp.size * h / 360.0F);
+                g.fill(px, py, px + sz, py + sz, argb((int) (185 * fade), 0x70, 0x05, 0x0B));
+            }
+        }
+        for (Drip d : DRIPS) { // gotas que resbalan
+            if (d.delay > 0) continue;
+            int wpx = Math.max(2, Math.round(d.w * h / 360.0F));
+            int x = (int) (d.x * w);
+            int top = (int) (d.y0 * h);
+            int head = (int) (d.y * h);
+            int tw = Math.max(1, (int) (wpx * 0.6F));
+            g.fill(x - tw / 2, top, x - tw / 2 + tw, head, argb((int) (205 * fade), 0x6A, 0x04, 0x0A));
+            g.fill(x - wpx / 2, head - wpx, x - wpx / 2 + wpx, head + wpx / 2, argb((int) (235 * fade), 0xA8, 0x08, 0x14));
+            g.fill(x - wpx / 2, head - wpx, x - wpx / 2 + 1, head - wpx / 2, argb((int) (150 * fade), 0xE0, 0x50, 0x58));
         }
     }
 
