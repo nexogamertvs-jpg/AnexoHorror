@@ -15,7 +15,7 @@ public final class ModEntities {
 
     public static final RegistryObject<EntityType<HorrorEntity>> WATCHER = ENTITIES.register("watcher",
             () -> EntityType.Builder.<HorrorEntity>of(HorrorEntity::new, MobCategory.MISC)
-                    .sized(0.6F, 1.8F)
+                    .sized(1.0F, 2.8F)
                     .clientTrackingRange(8)
                     .updateInterval(2)
                     .noSave()

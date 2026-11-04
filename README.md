@@ -1,7 +1,6 @@
 # AnexoHorror (Forge 1.20.1 / 47.2.0)
 
-Mod de terror analógico y psicológico. Siete presencias (seis planos con tus imagenes + un modelo 3D .obj) que observan,
-nunca persiguen ni atacan.
+Mod de terror analógico y psicológico. Siete presencias principales (seis planos con tus imagenes + una entidad 3D .obj), con comportamiento de acecho. Una variante especial puede iniciar una persecucion y El Otro conserva su combate de jefe.
 
 ## Compilar
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
@@ -14,12 +13,12 @@ Para probar: `./gradlew runClient`.
 
 ## Comandos de prueba (OP nivel 2)
 - `/anexohorror spawn [0-5]`  presencia delante de ti (0 peeker, 1 grin, 2 smiler, 3 drawn, 4 crawler, 5 eye, 6 slender 3D)
-- `/anexohorror event <stare|peripheral|peek|door|bed|cave|fake_sound|footsteps|silence>`
+- `/anexohorror event <stare|peripheral|peek|door|bed|cave|fake_sound|footsteps|silence|window|hunt|other|blackout|static_burst|far_call|fake_chat>`
 - `/anexohorror status`       miedo / audacia / nerviosismo aprendidos del jugador
 
 ## Configuración
 `config/anexohorror-common.toml`: intensidad, distancias mínimas, máximo de entidades, sonidos falsos,
-silencios y escalada nocturna.
+silencios y escalada nocturna. Para conservar el acecho a distancia, los valores recomendados son `minDistanceDay = 24` y `minDistanceNight = 18`; los archivos de configuracion antiguos pueden conservar sus valores previos.
 
 ## Archivos originales
 `originals/` conserva tus PNG y el MP3. En el mod: texturas con fondo transparente
@@ -53,7 +52,7 @@ silencios y escalada nocturna.
 
 ## v1.4.0
 - **Video en alta calidad**: 960x540 a 20 fps (642 fotogramas JPEG, 21 MB repartidos en `video/intro_0.bin` + `intro_1.bin`, indice `intro.idx`) y audio nuevo.
-- **El video sale cada vez que anochece** (modo `NIGHTFALL`, por defecto). Tambien existe `NEW_WORLD` (primera vez en cada mundo) y `OFF`. Cambialo en `config/anexohorror-client.toml`.
+- **El video sale cada vez que anochece** (modo `NIGHTFALL`, por defecto). `NEW_WORLD` tambien lo muestra al entrar por primera vez a cada mundo; `OFF` desactiva los videos. Cambialo en `config/anexohorror-client.toml`.
 - **Las presencias solo aparecen de noche** (tiempo 13000-23000) y se esfuman al amanecer. De dia quedan solo sonidos/eventos sin entidad. Los comandos de prueba (`/anexohorror spawn`, `/anexohorror event`) siguen funcionando de dia.
 - **Aura luminosa**: halo suave y emisivo que sigue la silueta de cada presencia (`textures/entity/*_glow.png`), con pulso lento y parpadeo. Ajustable con `glow` y `glowStrength` en la config del cliente.
 
@@ -63,20 +62,20 @@ silencios y escalada nocturna.
 - **Noches vividas**: cada noche sube un poco la frecuencia de eventos (hasta +96%).
 - **Nueva entidad** `stalker` (silueta de garras largas) con su aura.
 - **Eventos nocturnos nuevos**: apagon de pantalla, rafaga de estatica, llamadas lejanas (criatura / sirena / tono anomalo), mensajes de chat falsos.
-- **Sonidos**: se usan tus 6 audios (susurro de cinta, llamada de criatura, sirena, tono anomalo, musica turbia tras el video) + sintetizados (screamer, impacto, acufeno, cinta que se detiene).
+- **Sonidos**: se usan audios originales del proyecto (susurros, llamada de criatura, sirena, tono anomalo) + sintetizados (screamer, impacto, acufeno, cinta que se detiene). La musica de anochecer fue retirada y se trasladó a apariciones aleatorias.
 - **Visual**: marcas de camara VHS de noche (REC, PLAY, contador, fecha), grano suave nocturno, temblor de camara, latido que se acelera al mirar, ceniza alrededor de las presencias.
 - Comandos de prueba: `/ahc screamer|blackout|static` y `/anexohorror event blackout|static_burst|far_call|fake_chat`.
 
 ## v1.6.0
 - **Asomarse despacio (solo la cabeza)**: en modo PEEK cada entidad 2D enseña solo su cabeza (recorte propio por entidad), a la altura de los ojos, y sale lentamente (4-8 s) desde detras del obstaculo. Funciona por esquinas, bloques, puertas abiertas y VENTANAS DE CRISTAL (la cabeza sube desde debajo del alfeizar). Probable con cualquier entidad.
 - **Persecucion**: una presencia cualquiera congela tu mirada 5 s con "NO ESCAPARAS NUNCA MAS DE MI" y despues te persigue frenetica: rompe bloques (si mobGriefing esta activo), trepa, nada la detiene. Al alcanzarte NO hace dano: solo screamer. Config `[hunt]`: enabled, speed, breakBlocks, minNight, cooldownMinutes. Prueba: `/anexohorror event hunt`.
-- **HUD VHS siempre activo** (dia y noche).
+- **HUD VHS nocturno** (REC, PLAY, contador y fecha) y grano analogico.
 - **Mas presencias**: intervalos nocturnos mas cortos, mas intentos de colocacion y reintento rapido si no hubo sitio.
 - **Screamers**: si falta alguna textura se salta (ya no sale el cuadro negro y morado). Ojo: la subida web de GitHub admite 100 archivos por vez.
 - La carpeta `originals/` ya no va en el paquete (para no pasar de 100 archivos).
 
 ## v1.7.0
-- **El video VHS solo sale la PRIMERA noche** de cada jugador (contador de noches vividas). En las demas noches, al empezar, aparece "DIA N" en rojo con salpicaduras y gotas de sangre que resbalan por la pantalla (opcion `nightTitle`). Para volver a ver el video: `/anexohorror nights 0` y espera al anochecer (o `/ahc intro`).
+- **El video VHS sale al inicio de cada noche** cuando `intro.mode = NIGHTFALL`. En noches posteriores tambien aparece el titulo "DIA N" en rojo con salpicaduras y gotas de sangre (opcion `nightTitle`).
 - **Huevos generadores** de cada entidad (pestana creativa "AnexoHorror"): El Enmascarado, El Descarnado, El Sombrerero, El Encorvado, El Cornudo, El Gritón, El Habitante del Rincón (3D) y El Acechador. Clic derecho en un bloque: aparece, se queda ~2 min y solo se va si te acercas. Los nombres estan en `assets/anexohorror/lang/*.json`.
 
 ## v1.8.0
@@ -90,3 +89,17 @@ silencios y escalada nocturna.
 - **Combate**: ya no camina. Desaparece en una explosion de sangre y brillo y reaparece junto al jugador, carga 0.7 s (se inclina y vibra) y golpea; mas rapido con poca vida. Sigue hablando por el chat en las fases de dolor.
 - **Aura roja** en tres capas (rojo seco, carmesi, rojo profundo), mas intensa al cargar. Respira, se mece, sacudidas bruscas y "pop" al aparecer. Destello rojo en pantalla al aparecer y al golpear.
 - Huevo "El Otro" (nuevo item `egg_other`). El modelo 3D ya no es una variante comun.
+
+
+## v1.10.0 — expansion analogica
+- **Musica aleatoria por aparicion**: se retiró la pista programada al anochecer. Ahora, al materializarse una entidad, existe una probabilidad controlada de reproducir una de cuatro pistas nuevas, con enfriamiento de 120 segundos por jugador para evitar superposiciones.
+- **Sonido de persecucion**: el audio `sonido de persecucion.mp3` se reproduce cuando el cazador pasa de la fase de inmovilizacion a la caza.
+- **Sonidos adicionales**: `sonido.mp3` se integra como audio distante/ambiental y puede aparecer en eventos de acecho y en la secuencia de la mano.
+- **Animacion organica de las presencias**: respiracion lenta, balanceo corporal, micro-oscilaciones y espasmos ocasionales. Se conserva la animacion de asomarse mostrando solo la cabeza.
+- **Vida real para las presencias**: las entidades observadoras tienen 160 puntos de vida (80 corazones), armadura y resistencia al empuje; pueden recibir daño y solo desaparecen al morir. El Otro conserva sus 350 puntos de vida.
+- **Evento de puertas**: algunas puertas cercanas se abren solas despues de golpes y crujidos. Una presencia se asoma lentamente por el costado y, en algunos encuentros, extiende la mano proporcionada. El alcance esta limitado a 7 bloques; solo alcanza al jugador si sigue dentro del radio y no se aparta del extremo.
+- **Director de acecho adaptativo**: las presencias comunes aparecen desde mas lejos y con pausas mas largas (aprox. 25-60 s al principio de la noche); cada noche vivida acelera gradualmente los eventos y aumenta el peso de la persecucion especial.
+- **Textos menos predecibles**: las frases de pantalla ya no aparecen con cada entidad; se seleccionan de forma aleatoria y poco frecuente. Se mantienen las frases originales del proyecto.
+- **VHS corregido**: el HUD se muestra durante la noche. El servidor detecta el cruce de 13000 ticks incluso si el tiempo salta sobre ese valor o el mundo carga ya de noche. El video se envía cada noche cuando el modo del cliente es `NIGHTFALL`.
+- **Sueño bloqueado**: cada intento de dormir cancela el descanso y activa un screamer aleatorio con el mensaje exacto **NO ESCAPARÁS DE ESTA REALIDAD**.
+- **Recursos**: cuatro músicas, sonido de persecucion, sonido ambiental y mano recortada con transparencia a partir de los recursos proporcionados.

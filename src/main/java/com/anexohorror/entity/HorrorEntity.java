@@ -14,12 +14,15 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -29,8 +32,9 @@ import net.minecraft.world.phys.Vec3;
 import java.util.UUID;
 
 /**
- * Presencia inmovil. No tiene IA, no se mueve, no ataca ni persigue.
- * Solo observa, y desaparece cuando el jugador la mira y se aparta, se acerca o se cansa de ella.
+ * Presencia de acecho. En los modos normales no tiene IA, no se mueve ni ataca:
+ * observa y desaparece cuando el jugador la mira y se aparta, se acerca o se cansa de ella.
+ * HUNT es la excepcion especial que se desplaza y persigue al jugador.
  */
 public class HorrorEntity extends Mob {
     private static final EntityDataAccessor<Integer> DATA_VARIANT =
@@ -38,6 +42,16 @@ public class HorrorEntity extends Mob {
     private static final EntityDataAccessor<Integer> DATA_MODE =
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> DATA_SCALE =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_HAND =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_HAND_X =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_HAND_Y =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_HAND_Z =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_HAND_PROGRESS =
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
 
     // Estado solo de servidor (la entidad no se guarda en disco: noSave()).
@@ -67,6 +81,12 @@ public class HorrorEntity extends Mob {
     private int huntPhase;
     private int huntTimer;
 
+    // Mano: ataque escenico sincronizado con el cliente, limitado a siete bloques.
+    private int handTicks;
+    private int handDuration = 90;
+    private boolean handAttack;
+    private boolean handResolved;
+
     public HorrorEntity(EntityType<? extends HorrorEntity> type, Level level) {
         super(type, level);
         this.noPhysics = true;
@@ -81,6 +101,19 @@ public class HorrorEntity extends Mob {
         this.entityData.define(DATA_VARIANT, 0);
         this.entityData.define(DATA_MODE, 0);
         this.entityData.define(DATA_SCALE, 1.0F);
+        this.entityData.define(DATA_HAND, false);
+        this.entityData.define(DATA_HAND_X, 0.0F);
+        this.entityData.define(DATA_HAND_Y, 0.0F);
+        this.entityData.define(DATA_HAND_Z, 0.0F);
+        this.entityData.define(DATA_HAND_PROGRESS, 0.0F);
+    }
+
+    public static AttributeSupplier.Builder createAttributes() {
+        return Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 160.0D) // 80 corazones: supera al golem de hierro (100 HP)
+                .add(Attributes.ARMOR, 6.0D)
+                .add(Attributes.KNOCKBACK_RESISTANCE, 1.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.0D);
     }
 
     public void setup(UUID owner, HorrorVariant variant, HorrorMode mode, float scale,
@@ -95,6 +128,7 @@ public class HorrorEntity extends Mob {
         this.glimpseDelay = glimpseDelay;
         this.vanishDist = vanishDist;
         this.chainLeft = chainLeft;
+        this.setHealth(this.getMaxHealth());
     }
 
     public HorrorVariant getVariant() { return HorrorVariant.byId(this.entityData.get(DATA_VARIANT)); }
@@ -105,6 +139,30 @@ public class HorrorEntity extends Mob {
     public int getChainLeft() { return chainLeft; }
     public boolean wasSeen() { return hasBeenSeen; }
     public int getSeenTicks() { return seenTicks; }
+    public boolean hasHandAttack() { return this.entityData.get(DATA_HAND); }
+    public float getHandX() { return this.entityData.get(DATA_HAND_X); }
+    public float getHandY() { return this.entityData.get(DATA_HAND_Y); }
+    public float getHandZ() { return this.entityData.get(DATA_HAND_Z); }
+    public float getHandProgress() { return this.entityData.get(DATA_HAND_PROGRESS); }
+
+    /** Inicia la mano. El extremo nunca se sincroniza a mas de 7 bloques del origen. */
+    public void beginHandAttack(ServerPlayer target, int duration) {
+        if (this.level().isClientSide || target == null || !target.isAlive()) return;
+        Vec3 delta = target.getEyePosition().subtract(this.position());
+        double distance = delta.length();
+        if (distance < 0.1D) return;
+        double reach = Math.min(7.0D, distance);
+        Vec3 end = delta.normalize().scale(reach);
+        this.entityData.set(DATA_HAND_X, (float) end.x);
+        this.entityData.set(DATA_HAND_Y, (float) end.y);
+        this.entityData.set(DATA_HAND_Z, (float) end.z);
+        this.entityData.set(DATA_HAND_PROGRESS, 0.0F);
+        this.entityData.set(DATA_HAND, true);
+        this.handTicks = 0;
+        this.handDuration = Math.max(40, duration);
+        this.handAttack = true;
+        this.handResolved = false;
+    }
 
     public static float hoverOf(HorrorVariant v, HorrorMode m, float scale) {
         return m == HorrorMode.LOW ? 0.0F : v.hover * scale;
@@ -165,6 +223,10 @@ public class HorrorEntity extends Mob {
             return;
         }
         life++;
+        if (handAttack) {
+            tickHand(p);
+            if (handAttack) return;
+        }
         if (huntPhase != 0) { tickHunt(sl, p); return; }
         if (!allowDay && life % 20 == 0 && !HorrorUtil.isNightTime(sl)) { // amanece: se esfuma
             vanish(VanishReason.EXPIRED);
@@ -217,6 +279,28 @@ public class HorrorEntity extends Mob {
         }
     }
 
+    private void tickHand(ServerPlayer p) {
+        handTicks++;
+        float progress = Mth.clamp(handTicks / (float) handDuration, 0.0F, 1.0F);
+        this.entityData.set(DATA_HAND_PROGRESS, progress);
+        if (progress >= 1.0F && !handResolved) {
+            handResolved = true;
+            double actualDistance = p.position().distanceTo(this.position());
+            Vec3 end = this.position().add(getHandX(), getHandY(), getHandZ());
+            // Solo alcanza si el jugador sigue dentro del radio y no se aparto del extremo.
+            if (actualDistance <= 7.15D && p.getEyePosition().distanceTo(end) <= 1.65D) {
+                ModNetwork.send(p, ClientEffectPacket.SCREAMER, -1, 0, "NO DEBISTE ABRIR");
+                p.hurt(p.damageSources().magic(), 1000.0F);
+                if (p.isAlive()) p.kill();
+            }
+        }
+        if (handTicks > handDuration + 12) {
+            handAttack = false;
+            this.entityData.set(DATA_HAND, false);
+            this.entityData.set(DATA_HAND_PROGRESS, 0.0F);
+        }
+    }
+
     private void tickHunt(ServerLevel sl, ServerPlayer p) {
         double dx = p.getX() - getX();
         double dz = p.getZ() - getZ();
@@ -229,7 +313,8 @@ public class HorrorEntity extends Mob {
                 huntPhase = 2;
                 huntTimer = 1800; // si en 90 s no llega, desaparece
                 this.entityData.set(DATA_MODE, HorrorMode.HUNT.ordinal());
-                sl.playSound(null, getX(), getY(), getZ(), ModSounds.CREATURE_CALL.get(), SoundSource.HOSTILE, 3.0F, 1.0F);
+                HorrorUtil.sound(p, ModSounds.HUNT_SCREAM.get(), SoundSource.HOSTILE,
+                        p.position(), 2.6F, 0.92F);
             }
             return;
         }
@@ -276,13 +361,32 @@ public class HorrorEntity extends Mob {
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        if (huntPhase == 0 && !this.level().isClientSide && !this.isRemoved()) vanish(VanishReason.HURT);
-        return false; // durante la caza nada la detiene
+        if (this.level().isClientSide || this.isRemoved() || amount <= 0.0F) return false;
+        // Las presencias ahora tienen vida real: reciben dano y solo desaparecen al morir.
+        return super.hurt(source, amount);
+    }
+
+    @Override
+    public void die(DamageSource source) {
+        if (!this.level().isClientSide && !this.isRemoved() && ownerId != null) {
+            HorrorDirector.onVanish(ownerId, this, VanishReason.HURT);
+        }
+        super.die(source);
+    }
+
+    @Override
+    protected SoundEvent getHurtSound(DamageSource source) {
+        return ModSounds.CRACK.get();
+    }
+
+    @Override
+    protected SoundEvent getDeathSound() {
+        return ModSounds.IMPACT.get();
     }
 
     @Override public boolean isPushable() { return false; }
-    @Override public boolean isPickable() { return false; }
-    @Override public boolean canBeCollidedWith() { return false; }
+    @Override public boolean isPickable() { return true; }
+    @Override public boolean canBeCollidedWith() { return true; }
     @Override public void push(Entity entity) { }
     @Override public boolean shouldShowName() { return false; }
 

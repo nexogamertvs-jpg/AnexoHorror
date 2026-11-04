@@ -206,7 +206,9 @@ public final class PsychoOverlay {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         long dt = mc.level.getDayTime();
-        long t = dt % 24000L; // siempre visible: de dia y de noche, del primer dia al ultimo
+        long t = dt % 24000L;
+        // La interfaz VHS aparece desde el inicio de la noche hasta el amanecer.
+        if (t < 13000L || t >= 23000L) return;
 
         Font font = mc.font;
         float s = Math.max(1.0F, h / 400.0F);

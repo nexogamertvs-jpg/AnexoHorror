@@ -5,7 +5,6 @@ import com.anexohorror.entity.HorrorEntity;
 import com.anexohorror.entity.HorrorMode;
 import com.anexohorror.entity.HorrorVariant;
 import com.anexohorror.entity.VanishReason;
-import com.anexohorror.registry.ModSounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.server.level.ServerLevel;
@@ -37,9 +36,9 @@ public final class PlayerState {
     int idleTicks;
     Vec3 lastPos = Vec3.ZERO;
     long silenceUntil;
-    long lastSleepScare = -1000L;
     long lastHunt = -1000000L;
     long lastOther = -1000000L;
+    long lastEntityMusic = -1000000L;
     long now;
     HorrorVariant lastVariant;
     final ArrayDeque<EventType> recent = new ArrayDeque<>();
@@ -125,11 +124,11 @@ public final class PlayerState {
         double intensity = (0.35D + 0.65D * night + 0.25D * dark) * HorrorConfig.INTENSITY.get();
         if (HorrorConfig.NIGHT_ESCALATION.get()) intensity *= 1.0D + Math.min(nights(p), 12) * 0.08D;
         double dayBase = 1500 + r.nextInt(3000);   // 1.2 a 3.7 min (solo sonidos de dia)
-        double nightBase = 260 + r.nextInt(640);   // 13 a 45 s: la noche esta viva
+        double nightBase = 500 + r.nextInt(700);   // 25 a 60 s: presencias menos frecuentes, mas inquietantes
         double base = HorrorUtil.lerp(dayBase, nightBase, night);
         double ticks = base / Math.max(0.1D, intensity);
         int roll = r.nextInt(100);
-        if (roll < 18) ticks = 100 + r.nextInt(200);     // rafaga: otro evento casi seguido
+        if (roll < 8) ticks = 140 + r.nextInt(220);     // raras rafagas: romper la calma sin saturar
         else if (roll < 23) ticks *= 2.0D;                // calma larga e impredecible
         if (idleTicks > 600) ticks *= 0.75D;              // el jugador quieto atrae mas atencion
         return (int) Math.max(80, ticks);
@@ -172,7 +171,7 @@ public final class PlayerState {
             w.computeIfPresent(EventType.FAKE_SOUND, (k, v) -> v * 0.6D);
             w.computeIfPresent(EventType.FOOTSTEPS, (k, v) -> v * 0.7D);
             w.put(EventType.WINDOW, in ? 3.0D : 1.2D);
-            w.put(EventType.HUNT, 0.45D);
+            w.put(EventType.HUNT, 0.28D + Math.min(nights(p), 10) * 0.045D);
             w.put(EventType.OTHER, (HorrorConfig.OTHER_ENABLED.get() && nights(p) >= HorrorConfig.OTHER_MIN_NIGHT.get()) ? 0.12D : 0.0D);
             w.put(EventType.BLACKOUT, 0.9D + fear * 0.6D);
             w.put(EventType.STATIC_BURST, 1.0D);
@@ -195,20 +194,19 @@ public final class PlayerState {
         return p.getPersistentData().getCompound("PlayerPersisted").getInt("anexohorror_nights");
     }
 
-    /** Se llama al empezar cada noche (13000): cuenta la noche y programa la musica turbia tras el video. */
+    /** Se llama al empezar cada noche (13000): cuenta la noche y da margen al anochecer.
+     * La musica ya no se reproduce aqui: ahora se selecciona aleatoriamente al aparecer una entidad. */
     void onNightfall(ServerPlayer p, ServerLevel l) {
         var data = p.getPersistentData();
         var persisted = data.getCompound("PlayerPersisted");
-        persisted.putInt("anexohorror_nights", persisted.getInt("anexohorror_nights") + 1);
-        data.put("PlayerPersisted", persisted);
-        cooldown = Math.max(cooldown, 900 + p.getRandom().nextInt(900)); // los eventos empiezan despues del video
-        if (HorrorConfig.FAKE_SOUNDS.get()) {
-            schedule(760, (pl, lv) -> {
-                if (HorrorUtil.isNightTime(lv)) {
-                    HorrorUtil.sound(pl, ModSounds.DARK_TAPE.get(), SoundSource.AMBIENT, pl.position(), 0.45F, 1.0F);
-                }
-            });
+        long worldDay = l.getDayTime() / 24000L;
+        if (!persisted.contains("anexohorror_last_night_day")
+                || persisted.getLong("anexohorror_last_night_day") != worldDay) {
+            persisted.putLong("anexohorror_last_night_day", worldDay);
+            persisted.putInt("anexohorror_nights", persisted.getInt("anexohorror_nights") + 1);
         }
+        data.put("PlayerPersisted", persisted);
+        cooldown = Math.max(cooldown, 900 + p.getRandom().nextInt(900));
     }
 
     /** Adaptacion: el director aprende como reacciona este jugador. */

@@ -29,7 +29,7 @@ public final class ClientConfig {
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
         b.push("intro");
-        INTRO_MODE = b.comment("NIGHTFALL = el video sale cada vez que anochece; NEW_WORLD = solo la primera vez en cada mundo/servidor; OFF = nunca.")
+        INTRO_MODE = b.comment("NIGHTFALL = video al anochecer; NEW_WORLD = video al entrar por primera vez y tambien al anochecer; OFF = desactiva los videos.")
                 .defineEnum("mode", IntroMode.NIGHTFALL);
         ALLOW_SKIP = b.comment("Permite saltar el video con ESC.")
                 .define("allowSkip", true);

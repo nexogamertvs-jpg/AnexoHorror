@@ -107,8 +107,10 @@ public final class PsychoClientTick {
         boolean inView = best > 0.12F;
         sinceText++;
         if (ClientConfig.SCREEN_TEXT.get()) {
-            if (inView && !wasInView && sinceText > 160) triggerText();
-            else if (inView && stare > 150 && sinceText > 500) triggerText();
+            // Las frases son un suceso independiente y poco frecuente: muchas apariciones
+            // deben ocurrir en silencio para no revelar el patron al jugador.
+            if (inView && !wasInView && sinceText > 160 && RNG.nextFloat() < 0.27F) triggerText();
+            else if (inView && stare > 150 && sinceText > 500 && RNG.nextFloat() < 0.004F) triggerText();
         }
         wasInView = inView;
         if (PsychoOverlay.textTicks > 0) PsychoOverlay.textTicks--;

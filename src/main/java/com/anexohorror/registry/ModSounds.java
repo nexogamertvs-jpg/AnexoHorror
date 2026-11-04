@@ -30,6 +30,12 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> CREATURE_CALL = reg("creature_call");
     public static final RegistryObject<SoundEvent> SIREN_CALL = reg("siren_call");
     public static final RegistryObject<SoundEvent> ANOMALY_TONE = reg("anomaly_tone");
+    public static final RegistryObject<SoundEvent> ENTITY_MUSIC_1 = reg("entity_music_1");
+    public static final RegistryObject<SoundEvent> ENTITY_MUSIC_2 = reg("entity_music_2");
+    public static final RegistryObject<SoundEvent> ENTITY_MUSIC_3 = reg("entity_music_3");
+    public static final RegistryObject<SoundEvent> ENTITY_MUSIC_4 = reg("entity_music_4");
+    public static final RegistryObject<SoundEvent> HUNT_SCREAM = reg("hunt_scream");
+    public static final RegistryObject<SoundEvent> DISTANT_SOUND = reg("distant_sound");
 
     private static RegistryObject<SoundEvent> reg(String name) {
         return SOUNDS.register(name,

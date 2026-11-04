@@ -23,11 +23,9 @@ public final class IntroTrigger {
 
     // video de anochecer: lo ordena el servidor; aqui se espera a que no haya otra pantalla abierta
     private static boolean videoQueued;
-    private static int queuedAge;
 
     public static void queueVideo() {
         videoQueued = true;
-        queuedAge = 0;
     }
 
     /** Para el comando de prueba: muestra el video ya, sin mirar la configuracion. */
@@ -49,16 +47,17 @@ public final class IntroTrigger {
         if (event.phase != TickEvent.Phase.END) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) {
-            videoQueued = false;
+            // Conserva el aviso recibido durante la carga del cliente.
             return;
         }
 
         // ---- video VHS ordenado por el servidor al anochecer
         if (videoQueued) {
-            if (++queuedAge > 3600) {
-                videoQueued = false;                       // paso demasiado tiempo: se descarta
-            } else if (mc.screen == null && mc.player.isAlive() && !mc.isPaused()) {
+            // No se descarta por tiempo: si otra pantalla esta abierta, el VHS espera
+            // hasta que el jugador pueda verlo en lugar de perderse.
+            if (mc.screen == null && mc.player.isAlive() && !mc.isPaused()) {
                 videoQueued = false;
+                pending = false; // evita que NEW_WORLD reproduzca dos veces el mismo VHS al entrar de noche
                 mc.setScreen(new IntroVideoScreen());
                 return;
             }

@@ -38,9 +38,9 @@ public final class HorrorConfig {
         MAX_ENTITIES = b.comment("Maximo de entidades visibles simultaneas por jugador (de noche).")
                 .defineInRange("maxEntities", 3, 1, 8);
         MIN_DIST_DAY = b.comment("Distancia minima de aparicion de dia (bloques).")
-                .defineInRange("minDistanceDay", 18, 8, 64);
+                .defineInRange("minDistanceDay", 24, 8, 64);
         MIN_DIST_NIGHT = b.comment("Distancia minima de aparicion de noche (bloques).")
-                .defineInRange("minDistanceNight", 10, 6, 48);
+                .defineInRange("minDistanceNight", 18, 6, 48);
         b.pop();
         b.push("psychological");
         FAKE_SOUNDS = b.comment("Sonidos falsos posicionales (susurros, golpes, pasos) sin entidad.")

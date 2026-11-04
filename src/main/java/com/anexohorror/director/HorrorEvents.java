@@ -99,7 +99,8 @@ public final class HorrorEvents {
 
     private static double minDist(PlayerState st, boolean night) {
         double d = night ? HorrorConfig.MIN_DIST_NIGHT.get() : HorrorConfig.MIN_DIST_DAY.get();
-        return Math.max(7.0D, d - st.bold * 5.0D); // si el jugador sostiene la mirada, aparecen mas cerca
+        double floor = night ? 14.0D : 20.0D;
+        return Math.max(floor, d - st.bold * 3.0D); // incluso si el jugador se acerca, mantienen distancia de acecho
     }
 
     private static Vec3 horizontalLook(ServerPlayer p) {
@@ -146,11 +147,32 @@ public final class HorrorEvents {
         e.setAllowDay(!HorrorUtil.isNightTime(l)); // solo true si se invoco por comando de dia
         l.addFreshEntity(e);
 
-        float vol = Math.max(1.0F, (float) dist / 12.0F + 0.2F);
+        float vol = Math.max(0.75F, (float) dist / 18.0F + 0.2F);
         float pitch = 0.85F + r.nextFloat() * 0.3F;
         l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, vol, pitch);
+
+        maybeEntityMusic(p, l, st, pos);
         st.lastVariant = v;
         return e;
+    }
+
+    /** Musica aleatoria vinculada a una aparicion, nunca al cambio de dia. */
+    private static void maybeEntityMusic(ServerPlayer p, ServerLevel l, PlayerState st, Vec3 pos) {
+        RandomSource r = p.getRandom();
+        long now = l.getGameTime();
+        if (now - st.lastEntityMusic < 2400L || r.nextInt(100) >= 34) return;
+        net.minecraft.sounds.SoundEvent[] tracks = {
+                ModSounds.ENTITY_MUSIC_1.get(), ModSounds.ENTITY_MUSIC_2.get(),
+                ModSounds.ENTITY_MUSIC_3.get(), ModSounds.ENTITY_MUSIC_4.get()
+        };
+        net.minecraft.sounds.SoundEvent track = tracks[r.nextInt(tracks.length)];
+        st.lastEntityMusic = now;
+        st.schedule(12 + r.nextInt(36), (pl, lv) -> {
+            if (pl.isAlive() && lv.dimension() == pl.level().dimension()) {
+                HorrorUtil.sound(pl, track, SoundSource.MUSIC, pl.position(), 0.48F,
+                        0.92F + pl.getRandom().nextFloat() * 0.16F);
+            }
+        });
     }
 
     /** Huevo generador: aparece donde clicas, se queda ~2 min y solo se va si te acercas. */
@@ -163,6 +185,7 @@ public final class HorrorEvents {
         e.moveTo(pos.x, pos.y, pos.z, yaw, 0.0F);
         l.addFreshEntity(e);
         l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, 1.0F, 1.0F);
+        maybeEntityMusic(p, l, HorrorDirector.stateFor(p), pos);
         return e;
     }
 
@@ -197,7 +220,7 @@ public final class HorrorEvents {
         for (int i = 0; i < 50; i++) {
             double sign = r.nextBoolean() ? 1.0D : -1.0D;
             double ang = Math.toRadians(sign * (55.0D + r.nextDouble() * 30.0D));
-            double d = 6.0D + r.nextDouble() * 11.0D;
+            double d = 10.0D + r.nextDouble() * 11.0D;
             Vec3 dir = rotate(hl, ang);
             Optional<BlockPos> g = HorrorUtil.ground(l, Mth.floor(p.getX() + dir.x * d),
                     Mth.floor(p.getZ() + dir.z * d), p.getBlockY(), 4, 8);
@@ -279,7 +302,7 @@ public final class HorrorEvents {
         if (pos == null) return false;
         int chain = (night && HorrorConfig.ESCALATION.get() && r.nextInt(100) < 35) ? 1 + r.nextInt(3) : 0;
         spawn(p, l, st, v, HorrorMode.STARE, pos, chain, 1.0F);
-        if (night && active(p, l) < HorrorConfig.MAX_ENTITIES.get() && r.nextInt(100) < 40) {
+        if (night && active(p, l) < HorrorConfig.MAX_ENTITIES.get() && r.nextInt(100) < 22) {
             HorrorVariant v2 = pick(r, W_STARE, st, true);
             Vec3 pos2 = findVisible(p, l, v2, minD, maxD, 60.0D, maxLight, 3);
             if (pos2 != null && pos2.distanceToSqr(pos) > 16.0D) {
@@ -303,7 +326,7 @@ public final class HorrorEvents {
         boolean night = st.isNight(l);
         if (!canSpawnMore(p, l, night)) return false;
         HorrorVariant v = pick(p.getRandom(), W_PEEK, st, night);
-        double minD = Math.max(5.0D, minDist(st, night) * 0.45D);
+        double minD = Math.max(10.0D, minDist(st, night) * 0.58D);
         Vec3 pos = findPeek(p, l, v, minD, minD + 12.0D, night ? 9 : 11, null, 0.0D);
         if (pos == null) return false;
         spawnPeek(p, l, st, v, pos);
@@ -311,34 +334,81 @@ public final class HorrorEvents {
     }
 
     private static boolean door(ServerPlayer p, ServerLevel l, PlayerState st) {
-        BlockPos door = findBlock(p, l, p.blockPosition(), 14, 4,
-                s -> s.getBlock() instanceof DoorBlock && s.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER, 3.0D);
+        // Las puertas escogidas quedan cerca: la mano nunca tiene mas de siete bloques de alcance.
+        BlockPos door = findBlock(p, l, p.blockPosition(), 7, 4,
+                state -> state.getBlock() instanceof DoorBlock
+                        && state.getValue(DoorBlock.HALF) == DoubleBlockHalf.LOWER, 3.0D);
         if (door == null) return false;
         RandomSource r = p.getRandom();
         boolean night = st.isNight(l);
-        boolean open = l.getBlockState(door).getValue(DoorBlock.OPEN);
+        boolean allowDayTest = HorrorUtil.forceDay;
         Vec3 dp = Vec3.atCenterOf(door);
-        if (open && canSpawnMore(p, l, night)) {
-            HorrorVariant v = pick(r, W_DOOR, st, night);
-            Vec3 pos = findPeek(p, l, v, 0.0D, 0.0D, 12, door, 2.5D);
-            if (pos != null) {
-                spawnPeek(p, l, st, v, pos);
+        BlockState doorState = l.getBlockState(door);
+        boolean open = doorState.getValue(DoorBlock.OPEN);
+
+        if (canSpawnMore(p, l, night) && r.nextInt(100) < 42) {
+            HorrorVariant variant = pick(r, W_DOOR, st, night);
+            if (open) {
+                triggerDoorPeek(p, l, st, variant, door, allowDayTest);
                 return true;
             }
+            // Primero se oyen golpes; despues la puerta se abre sola y algo asoma la cabeza.
+            int delay = 35 + r.nextInt(65);
+            st.schedule(delay, (pl, lv) -> {
+                BlockState lower = lv.getBlockState(door);
+                if (!(lower.getBlock() instanceof DoorBlock)
+                        || lower.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER) return;
+                lv.setBlock(door, lower.setValue(DoorBlock.OPEN, true), 3);
+                BlockPos upperPos = door.above();
+                BlockState upper = lv.getBlockState(upperPos);
+                if (upper.getBlock() instanceof DoorBlock && upper.getValue(DoorBlock.HALF) == DoubleBlockHalf.UPPER) {
+                    lv.setBlock(upperPos, upper.setValue(DoorBlock.OPEN, true), 3);
+                }
+                triggerDoorPeek(pl, lv, st, variant, door, allowDayTest);
+            });
         }
-        // Puerta cerrada (o sin hueco): golpes irregulares y, a veces, un chirrido.
+
+        // Golpes irregulares y crujido: a veces la puerta se queda cerrada.
         int n = 2 + r.nextInt(4);
         int t = 1;
-        for (int i = 0; i < n; i++) {
-            final float pitch = 0.75F + r.nextFloat() * 0.3F;
-            st.schedule(t, (pl, lv) -> HorrorUtil.sound(pl, ModSounds.KNOCK.get(), SoundSource.HOSTILE, dp, 1.3F, pitch));
-            t += 6 + r.nextInt(18);
+        for (int k = 0; k < n; k++) {
+            final float pitch = 0.72F + r.nextFloat() * 0.34F;
+            st.schedule(t, (pl, lv) ->
+                    HorrorUtil.sound(pl, ModSounds.KNOCK.get(), SoundSource.HOSTILE, dp, 1.25F, pitch));
+            t += 7 + r.nextInt(17);
         }
-        if (r.nextInt(100) < 35) {
-            st.schedule(t + 30 + r.nextInt(40), (pl, lv) ->
-                    HorrorUtil.sound(pl, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS, dp, 1.0F, 0.8F));
+        if (r.nextInt(100) < 55) {
+            st.schedule(t + 18 + r.nextInt(35), (pl, lv) ->
+                    HorrorUtil.sound(pl, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS, dp, 0.9F, 0.72F));
         }
         return true;
+    }
+
+    private static void triggerDoorPeek(ServerPlayer p, ServerLevel l, PlayerState st,
+                                        HorrorVariant variant, BlockPos door, boolean allowDayTest) {
+        if (!p.isAlive()) return;
+        if (allowDayTest) {
+            if (active(p, l) >= HorrorConfig.MAX_ENTITIES.get()) return;
+        } else if (!canSpawnMore(p, l, st.isNight(l))) return;
+        HorrorUtil.sound(p, ModSounds.CREAK.get(), SoundSource.BLOCKS,
+                Vec3.atCenterOf(door), 1.0F, 0.68F + p.getRandom().nextFloat() * 0.12F);
+        Vec3 pos = findPeek(p, l, variant, 0.0D, 0.0D, 12, door, 2.0D);
+        if (pos == null) return;
+        HorrorEntity entity = spawnPeek(p, l, st, variant, pos);
+        if (entity == null) return;
+
+        // La mano solo se activa en una parte de los encuentros; se deja tiempo para que la cabeza se revele.
+        if (p.getRandom().nextInt(100) < 58) {
+            int handDelay = entity.getRevealTicks() + 12;
+            st.schedule(handDelay, (pl, lv) -> {
+                if (!entity.isRemoved() && pl.isAlive()
+                        && pl.position().distanceTo(entity.position()) <= 7.0D) {
+                    entity.beginHandAttack(pl, 92);
+                    HorrorUtil.sound(pl, ModSounds.DISTANT_SOUND.get(), SoundSource.HOSTILE,
+                            entity.position(), 0.85F, 0.82F + pl.getRandom().nextFloat() * 0.18F);
+                }
+            });
+        }
     }
 
     /** Evento de cama: la presencia se asoma por debajo/junto a una cama cercana. */
@@ -371,7 +441,7 @@ public final class HorrorEvents {
         boolean night = st.isNight(l);
         if (!canSpawnMore(p, l, true)) return false;
         HorrorVariant v = pick(p.getRandom(), W_CAVE, st, night);
-        Vec3 pos = findVisible(p, l, v, 9.0D, 26.0D, 50.0D, 3, 3);
+        Vec3 pos = findVisible(p, l, v, 12.0D, 32.0D, 50.0D, 3, 3);
         if (pos != null) {
             spawn(p, l, st, v, HorrorMode.STARE, pos, 0, 1.0F);
             return true;
@@ -414,7 +484,7 @@ public final class HorrorEvents {
 
     // ------------------------------------------------------------------ eventos sin entidad (falsas presencias)
 
-    private enum Fake { WHISPER, BREATH, KNOCK_WALL, DRONE, STATIC, CRACK_ALONE, SCRAPE, HEARTBEAT, CREAK }
+    private enum Fake { WHISPER, BREATH, KNOCK_WALL, DRONE, STATIC, CRACK_ALONE, SCRAPE, HEARTBEAT, CREAK, DISTANT }
 
     private static Vec3 around(ServerPlayer p, double lo, double hi, boolean behind) {
         RandomSource r = p.getRandom();
@@ -438,6 +508,7 @@ public final class HorrorEvents {
         w.put(Fake.SCRAPE, 1.3D);
         w.put(Fake.HEARTBEAT, 0.6D + st.fear);
         w.put(Fake.CREAK, 1.2D);
+        w.put(Fake.DISTANT, night ? 1.8D : 0.55D);
         for (int idx : st.recentSounds) w.computeIfPresent(Fake.values()[idx], (k, v) -> v * 0.25D);
         Fake f = HorrorUtil.pickWeighted(r, w);
         st.recentSounds.addLast(f.ordinal());
@@ -471,6 +542,8 @@ public final class HorrorEvents {
                     p.getEyePosition(), 0.55F, 1.0F);
             case CREAK -> HorrorUtil.sound(p, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS,
                     around(p, 6.0D, 12.0D, false), 0.9F, 0.75F + r.nextFloat() * 0.2F);
+            case DISTANT -> HorrorUtil.sound(p, ModSounds.DISTANT_SOUND.get(), SoundSource.AMBIENT,
+                    around(p, 10.0D, 22.0D, true), 0.55F + r.nextFloat() * 0.2F, 0.82F + r.nextFloat() * 0.25F);
             default -> { }
         }
         return true;
@@ -635,6 +708,7 @@ public final class HorrorEvents {
         l.addFreshEntity(e);
         l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CRACK.get(), SoundSource.HOSTILE, 2.0F, 0.7F);
         l.playSound(null, pos.x, pos.y, pos.z, ModSounds.CREATURE_CALL.get(), SoundSource.HOSTILE, 3.0F, 0.9F);
+        maybeEntityMusic(p, l, HorrorDirector.stateFor(p), pos);
         ModNetwork.send(p, ClientEffectPacket.TITLE, 0, 0, "EL OTRO");
         return e;
     }

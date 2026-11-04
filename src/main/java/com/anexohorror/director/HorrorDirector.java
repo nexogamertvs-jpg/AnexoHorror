@@ -84,10 +84,7 @@ public final class HorrorDirector {
             }
         }
 
-        PlayerState st = stateFor(sp);
-        long now = l.getGameTime();
-        if (now - st.lastSleepScare < 100L) return; // un solo susto por intento
-        st.lastSleepScare = now;
+        // Cada intento real de dormir dispara su propio screamer, sin enfriamiento artificial.
         ModNetwork.send(sp, ClientEffectPacket.SCREAMER, -1, 0, "NO ESCAPAR\u00c1S DE ESTA REALIDAD");
     }
 

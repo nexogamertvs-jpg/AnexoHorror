@@ -113,5 +113,50 @@
         "stream": true
       }
     ]
+  },
+  "entity_music_1": {
+    "sounds": [
+      {
+        "name": "anexohorror:entity_music_1",
+        "stream": true
+      }
+    ]
+  },
+  "entity_music_2": {
+    "sounds": [
+      {
+        "name": "anexohorror:entity_music_2",
+        "stream": true
+      }
+    ]
+  },
+  "entity_music_3": {
+    "sounds": [
+      {
+        "name": "anexohorror:entity_music_3",
+        "stream": true
+      }
+    ]
+  },
+  "entity_music_4": {
+    "sounds": [
+      {
+        "name": "anexohorror:entity_music_4",
+        "stream": true
+      }
+    ]
+  },
+  "hunt_scream": {
+    "sounds": [
+      "anexohorror:hunt_scream"
+    ]
+  },
+  "distant_sound": {
+    "sounds": [
+      {
+        "name": "anexohorror:distant_sound",
+        "stream": true
+      }
+    ]
   }
 }
