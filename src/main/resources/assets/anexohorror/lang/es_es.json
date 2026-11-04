@@ -6,10 +6,11 @@
   "item.anexohorror.egg_drawn": "Huevo: El Encorvado",
   "item.anexohorror.egg_crawler": "Huevo: El Cornudo",
   "item.anexohorror.egg_eye": "Huevo: El Gritón",
-  "item.anexohorror.egg_slender": "Huevo: El Otro",
   "item.anexohorror.egg_stalker": "Huevo: El Acechador",
   "itemGroup.anexohorror": "AnexoHorror",
   "item.anexohorror.egg.tooltip": "Clic derecho en un bloque: aparece.",
-  "item.anexohorror.egg.tooltip2": "Persiste 2 min y solo se va si te acercas. (El Otro: combate de jefe)",
-  "entity.anexohorror.other": "El Otro"
+  "item.anexohorror.egg.tooltip2": "Persiste 2 min y solo se va si te acercas.",
+  "entity.anexohorror.other": "El Otro",
+  "item.anexohorror.egg_other": "Huevo: El Otro",
+  "item.anexohorror.egg_other.tooltip": "Combate de jefe: 120 s para derrotarlo."
 }

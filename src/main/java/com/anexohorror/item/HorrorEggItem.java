@@ -36,9 +36,7 @@ public class HorrorEggItem extends Item {
         if (!(level instanceof ServerLevel sl) || !(ctx.getPlayer() instanceof ServerPlayer sp)) return InteractionResult.PASS;
         BlockPos pos = ctx.getClickedPos().relative(ctx.getClickedFace());
         Vec3 at = new Vec3(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D);
-        boolean ok = variant == HorrorVariant.SLENDER
-                ? HorrorEvents.spawnOther(sp, sl, at) != null
-                : HorrorEvents.spawnFromEgg(sp, sl, variant, at) != null;
+        boolean ok = HorrorEvents.spawnFromEgg(sp, sl, variant, at) != null;
         if (ok && !sp.getAbilities().instabuild) {
             ctx.getItemInHand().shrink(1);
         }

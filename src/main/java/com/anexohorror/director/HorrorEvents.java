@@ -39,13 +39,13 @@ import java.util.function.Predicate;
 /** Ejecucion de cada tipo de evento. Devuelve false si no hubo lugar valido (el director prueba otro). */
 public final class HorrorEvents {
 
-    // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, SLENDER, STALKER
-    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 0.0, 2.5};
-    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 0.0, 2.0};
-    private static final double[] W_PEEK = {4.0, 3.0, 3.0, 3.0, 3.0, 3.0, 0.0, 3.0};
-    private static final double[] W_DOOR = {3.0, 2.5, 2.5, 2.0, 2.5, 2.5, 0.0, 2.5};
-    private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0};
-    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 0.0, 2.0};
+    // Pesos por variante, orden: PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE, STALKER
+    private static final double[] W_STARE = {1.0, 1.5, 3.0, 3.0, 2.5, 1.0, 2.5};
+    private static final double[] W_PERIPH = {1.5, 2.0, 3.0, 2.0, 3.0, 1.5, 2.0};
+    private static final double[] W_PEEK = {4.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0};
+    private static final double[] W_DOOR = {3.0, 2.5, 2.5, 2.0, 2.5, 2.5, 2.5};
+    private static final double[] W_BED = {3.0, 2.0, 0.0, 0.0, 2.0, 2.0, 0.0};
+    private static final double[] W_CAVE = {0.5, 3.0, 2.0, 2.0, 2.0, 3.0, 2.0};
 
     private static final HorrorVariant[] VARIANTS = HorrorVariant.values();
 
@@ -525,7 +525,6 @@ public final class HorrorEvents {
 
     /** [hover, alto, ancho] del sprite usado para comprobar visibilidad: solo la cabeza en los planos 2D. */
     private static double[] peekDims(HorrorVariant v) {
-        if (v.model) return new double[]{v.hover, v.height, v.height * v.aspect};
         float hh = v.headHeight(1.0F);
         return new double[]{HorrorEntity.HEAD_CENTER - hh / 2.0F, hh, v.headWidth(1.0F)};
     }
@@ -573,7 +572,6 @@ public final class HorrorEvents {
         if (glass == null) return false;
         RandomSource r = p.getRandom();
         HorrorVariant v = pick(r, W_PEEK, st, night);
-        if (v.model) return false;
         Vec3 pc = p.position();
         Vec3 eye = p.getEyePosition();
         double[] dm = peekDims(v);
@@ -607,10 +605,7 @@ public final class HorrorEvents {
         }
         RandomSource r = p.getRandom();
         HorrorVariant[] all = HorrorVariant.values();
-        HorrorVariant v;
-        do {
-            v = all[r.nextInt(all.length)];
-        } while (v == HorrorVariant.SLENDER); // el 3D es "El Otro", aparte
+        HorrorVariant v = all[r.nextInt(all.length)];
         Vec3 pos = findVisible(p, l, v, 14.0D, 20.0D, 22.0D, 15, 5);
         if (pos == null) pos = findVisible(p, l, v, 12.0D, 24.0D, 50.0D, 15, 4);
         if (pos == null) return false;
@@ -655,7 +650,7 @@ public final class HorrorEvents {
         }
         if (!l.getEntitiesOfClass(OtherEntity.class, p.getBoundingBox().inflate(160.0D), e -> true).isEmpty()) return false;
         for (int i = 0; i < 12; i++) {
-            Vec3 pos = findVisible(p, l, HorrorVariant.SLENDER, 14.0D, 22.0D, 45.0D, 15, 3);
+            Vec3 pos = findVisible(p, l, HorrorVariant.CRAWLER, 14.0D, 22.0D, 45.0D, 15, 3);
             if (pos == null) continue;
             OtherEntity probe = ModEntities.OTHER.get().create(l);
             if (probe == null) return false;

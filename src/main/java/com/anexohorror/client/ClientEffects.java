@@ -16,6 +16,7 @@ public final class ClientEffects {
             case ClientEffectPacket.NIGHT_TITLE -> {
                 if (ClientConfig.NIGHT_TITLE.get()) PsychoClientTick.triggerNightTitle(a);
             }
+            case ClientEffectPacket.BLOOD_FLASH -> PsychoClientTick.triggerBloodFlash(a);
             case ClientEffectPacket.TITLE -> PsychoClientTick.triggerTitle(text);
             case ClientEffectPacket.LOCK -> PsychoClientTick.triggerLock(a, b, text);
             default -> { }

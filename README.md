@@ -7,7 +7,7 @@ nunca persiguen ni atacan.
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.8.0.jar
+    ./gradlew build                           # jar en build/libs/anexohorror-1.9.0.jar
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
@@ -84,3 +84,9 @@ silencios y escalada nocturna.
 - **El Otro** (jefe final, el modelo 3D): muy poco comun (peso 0.12, desde la noche 3, 20 min entre apariciones). Tienes 120 s para matarlo antes de que la grieta lo reclame. 350 de vida, armadura, ataca de verdad (oscuridad al golpear) y se detiene a hablar por el chat al llegar al 90/75/60/45/30/15 % de vida. Barra de jefe con vida y cuenta atras. Solo recibe dano de quien lo golpea (sin trampas). Config `[other]`. Prueba: `/anexohorror event other` o el huevo "El Otro".
 - Al morir suelta **El Indice** (estrella del Nether renombrada, lore "La grieta cada vez se fractura mas") y muestra el titulo "EL OTRO HA CAIDO".
 - El modelo 3D ya no sale como presencia comun.
+
+## v1.9.0
+- **Nuevo "El Otro"**: tu modelo de Blockbench (92 mallas, sentado en el suelo, sin silla) reemplaza al modelo anterior, que se elimino (obj/slender*, textura y variante `SLENDER`). Texturizado por codigo con la paleta de la foto de referencia (negro marron fibroso, cuello acanalado, cono gris-marron, cara palida con ojos oscuros), mas deformidades: relieve irregular, barriga hinchada, cabeza torcida y 22 bultos/tumores. Altura de 4 bloques (el cono incluido). LOD alto 9.3k tris, lejano 2.9k.
+- **Combate**: ya no camina. Desaparece en una explosion de sangre y brillo y reaparece junto al jugador, carga 0.7 s (se inclina y vibra) y golpea; mas rapido con poca vida. Sigue hablando por el chat en las fases de dolor.
+- **Aura roja** en tres capas (rojo seco, carmesi, rojo profundo), mas intensa al cargar. Respira, se mece, sacudidas bruscas y "pop" al aparecer. Destello rojo en pantalla al aparecer y al golpear.
+- Huevo "El Otro" (nuevo item `egg_other`). El modelo 3D ya no es una variante comun.

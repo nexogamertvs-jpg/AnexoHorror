@@ -6,10 +6,11 @@
   "item.anexohorror.egg_drawn": "Spawn Egg: The Hunched One",
   "item.anexohorror.egg_crawler": "Spawn Egg: The Horned One",
   "item.anexohorror.egg_eye": "Spawn Egg: The Screamer",
-  "item.anexohorror.egg_slender": "Spawn Egg: The Other",
   "item.anexohorror.egg_stalker": "Spawn Egg: The Stalker",
   "itemGroup.anexohorror": "AnexoHorror",
   "item.anexohorror.egg.tooltip": "Right-click a block: it appears.",
-  "item.anexohorror.egg.tooltip2": "Stays 2 min, leaves only if you get close. (The Other: boss fight)",
-  "entity.anexohorror.other": "The Other"
+  "item.anexohorror.egg.tooltip2": "Stays 2 min, leaves only if you get close.",
+  "entity.anexohorror.other": "The Other",
+  "item.anexohorror.egg_other": "Spawn Egg: The Other",
+  "item.anexohorror.egg_other.tooltip": "Boss fight: 120 s to defeat it."
 }

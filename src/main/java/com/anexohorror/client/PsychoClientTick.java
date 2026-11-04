@@ -89,7 +89,6 @@ public final class PsychoClientTick {
             if (dot < 0.6D || !p.hasLineOfSight(he)) continue;
             float prox = (float) (1.0D - d / 64.0D);
             float strength = (float) ((dot - 0.6D) / 0.4D) * (0.35F + 0.65F * prox);
-            if (he.getVariant().model) strength *= 1.3F;
             best = Math.max(best, strength);
         }
         best = Math.max(best, hunt * 0.9F);
@@ -171,6 +170,7 @@ public final class PsychoClientTick {
         // ---- temporizadores de efectos
         if (PsychoOverlay.scTicks > 0) PsychoOverlay.scTicks--;
         if (PsychoOverlay.blackTicks > 0) PsychoOverlay.blackTicks--;
+        if (PsychoOverlay.redTicks > 0) PsychoOverlay.redTicks--;
         if (PsychoOverlay.staticTicks > 0) PsychoOverlay.staticTicks--;
         if (tinnitusIn >= 0 && --tinnitusIn < 0) play(ModSounds.TINNITUS.get(), 1.0F, 0.55F);
 
@@ -287,6 +287,11 @@ public final class PsychoClientTick {
         PsychoOverlay.lockTotal = PsychoOverlay.lockTicks = Math.max(20, ticks);
         PsychoOverlay.lockText = (message == null || message.isEmpty()) ? "NO ESCAPAR\u00c1S NUNCA M\u00c1S DE M\u00cd" : message;
         play(ModSounds.IMPACT.get(), 0.8F, 1.0F);
+    }
+
+    /** Destello rojo y brillo cuando El Otro aparece o golpea. */
+    public static void triggerBloodFlash(int ticks) {
+        PsychoOverlay.redTotal = PsychoOverlay.redTicks = Math.max(3, ticks);
     }
 
     public static void triggerBlackout(int ticks) {

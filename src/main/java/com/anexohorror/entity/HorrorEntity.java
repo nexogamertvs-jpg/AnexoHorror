@@ -111,7 +111,7 @@ public class HorrorEntity extends Mob {
     }
 
     /** Modo asomarse en un plano 2D: solo se dibuja la cabeza, a la altura de los ojos. */
-    public boolean isHeadOnly() { return getMode() == HorrorMode.PEEK && !getVariant().model; }
+    public boolean isHeadOnly() { return getMode() == HorrorMode.PEEK; }
 
     public float spriteHeight() {
         return isHeadOnly() ? getVariant().headHeight(getVisualScale()) : getVariant().height * getVisualScale();

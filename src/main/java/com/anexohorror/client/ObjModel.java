@@ -30,14 +30,14 @@ public final class ObjModel {
 
     /** Se llama al cargar/recargar recursos (evita el tiron al aparecer por primera vez). */
     public static void reload(ResourceManager rm) {
-        high = tryLoad(rm, "obj/slender.obj");
-        low = tryLoad(rm, "obj/slender_lod.obj");
+        high = tryLoad(rm, "obj/other.obj");
+        low = tryLoad(rm, "obj/other_lod.obj");
         if (low == null) low = high;
         loaded = true;
     }
 
     /** far = true devuelve la version de pocos poligonos para distancias largas. */
-    public static ObjModel slender(boolean far) {
+    public static ObjModel other(boolean far) {
         if (!loaded) reload(Minecraft.getInstance().getResourceManager());
         return far && low != null ? low : high;
     }

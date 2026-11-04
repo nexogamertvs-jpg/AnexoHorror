@@ -89,6 +89,10 @@ public final class PsychoOverlay {
     static int lockTotal;
     static String lockText;
 
+    // destello rojo (El Otro aparece / golpea)
+    static int redTicks;
+    static int redTotal;
+
     // apagon y estatica
     static int blackTicks;
     static int blackTotal;
@@ -117,6 +121,7 @@ public final class PsychoOverlay {
         flashTicks = 0;
         scTicks = 0;
         lockTicks = 0;
+        redTicks = 0;
         titleTicks = 0;
         bloodTicks = 0;
         DRIPS.clear();
@@ -128,7 +133,7 @@ public final class PsychoOverlay {
 
     /** Fuerza del temblor de camara durante un screamer. */
     public static float screamerShake() {
-        return scTicks > 0 ? 1.0F : (lockTicks > 0 ? 0.5F : 0.0F);
+        return scTicks > 0 ? 1.0F : (redTicks > 0 ? 0.7F : (lockTicks > 0 ? 0.5F : 0.0F));
     }
 
     @SubscribeEvent
@@ -148,6 +153,7 @@ public final class PsychoOverlay {
         renderFlash(g, w, h);
         renderLock(g, w, h);
         renderScreamer(g, w, h);
+        renderRedFlash(g, w, h);
         renderBlackout(g, w, h);
     }
 
@@ -405,6 +411,22 @@ public final class PsychoOverlay {
             g.fill(0, h - (i + 1) * bw / 2, w, h - i * bw / 2, c);
         }
         horrorText(g, lockText, w, h, h * 0.78F, 0.86F, Math.min(1.0F, age / 4.0F) * Math.min(1.0F, lockTicks / 8.0F), age);
+    }
+
+    // ---------------------------------------------------------------- destello rojo
+
+    private static void renderRedFlash(GuiGraphics g, int w, int h) {
+        if (redTicks <= 0) return;
+        int age = redTotal - redTicks;
+        float k = redTicks / (float) redTotal;
+        if (age < 2) g.fill(0, 0, w, h, argb(150, 255, 230, 230)); // brillo
+        g.fill(0, 0, w, h, argb((int) (120 * k), 0xB0, 0x08, 0x14));
+        for (int i = 0; i < 12; i++) { // salpicaduras
+            int s = Math.max(2, (2 + RNG.nextInt(6)) * h / 360);
+            int x = RNG.nextInt(w);
+            int y = RNG.nextInt(h);
+            g.fill(x, y, x + s, y + s, argb((int) (200 * k), 0x80, 0x04, 0x0A));
+        }
     }
 
     // ---------------------------------------------------------------- apagon y estatica

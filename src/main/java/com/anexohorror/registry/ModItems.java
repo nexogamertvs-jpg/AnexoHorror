@@ -3,6 +3,7 @@ package com.anexohorror.registry;
 import com.anexohorror.AnexoHorror;
 import com.anexohorror.entity.HorrorVariant;
 import com.anexohorror.item.HorrorEggItem;
+import com.anexohorror.item.OtherEggItem;
 import net.minecraft.world.item.Item;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
@@ -15,6 +16,8 @@ import java.util.Map;
 public final class ModItems {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, AnexoHorror.MODID);
     public static final Map<HorrorVariant, RegistryObject<Item>> EGGS = new EnumMap<>(HorrorVariant.class);
+
+    public static final RegistryObject<Item> EGG_OTHER = ITEMS.register("egg_other", () -> new OtherEggItem(new Item.Properties()));
 
     static {
         for (HorrorVariant v : HorrorVariant.values()) {

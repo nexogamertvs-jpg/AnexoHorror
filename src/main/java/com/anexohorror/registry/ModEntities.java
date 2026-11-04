@@ -24,7 +24,7 @@ public final class ModEntities {
 
     public static final RegistryObject<EntityType<OtherEntity>> OTHER = ENTITIES.register("other",
             () -> EntityType.Builder.<OtherEntity>of(OtherEntity::new, MobCategory.MONSTER)
-                    .sized(1.6F, 3.0F)
+                    .sized(1.8F, 3.0F)
                     .clientTrackingRange(10)
                     .noSave()
                     .fireImmune()
