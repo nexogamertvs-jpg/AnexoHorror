@@ -17,6 +17,8 @@ public final class ClientEffectPacket {
     public static final int NIGHT_TITLE = 5; // a = numero de dia
     public static final int BLOOD_FLASH = 7; // a = ticks
     public static final int TITLE = 6;       // text = titulo rojo con sangre
+    public static final int CAMERA_FLASH = 8;   // a = duracion en ticks (flash de la camara)
+    public static final int OPEN_ALMANAC = 9;   // a = mascara de entidades registradas
     public static final int LOCK = 4;      // a = id de la entidad, b = ticks de mirada congelada, text = mensaje
 
     private final int kind;

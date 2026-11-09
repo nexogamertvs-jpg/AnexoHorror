@@ -18,13 +18,10 @@ public enum HorrorVariant {
     public final float height;
     public final float hover;
     public final float aspect;
-    /** Recorte de la cabeza (fracciones de la textura) para la animacion de asomarse. */
+    /** Datos de recorte historicos; el asomo actual renderiza siempre la silueta completa. */
     public final float headU0, headV0, headU1, headV1;
-    /** Aura luminosa: textura y tamano relativos al sprite. */
-    public final ResourceLocation glowTexture;
-    public final float glowScaleX;
-    public final float glowScaleY;
-    public final float glowPadY;
+    /** Overlay emisivo alineado al sprite original: contiene unicamente los ojos. */
+    public final ResourceLocation eyeTexture;
 
     HorrorVariant(String name, int pxW, int pxH, float height, float hover, float u0, float v0, float u1, float v1) {
         this.id = name;
@@ -36,14 +33,10 @@ public enum HorrorVariant {
         this.headV0 = v0;
         this.headU1 = u1;
         this.headV1 = v1;
-        int pad = Math.round(Math.max(pxW, pxH) * 0.16F); // igual que al generar *_glow.png
-        this.glowTexture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/" + name + "_glow.png");
-        this.glowScaleX = (pxW + 2 * pad) / (float) pxW;
-        this.glowScaleY = (pxH + 2 * pad) / (float) pxH;
-        this.glowPadY = pad / (float) pxH;
+        this.eyeTexture = new ResourceLocation(AnexoHorror.MODID, "textures/entity/" + name + "_eyes.png");
     }
 
-    /** Alto/ancho en bloques del recorte de cabeza. */
+    /** Alto/ancho historicos del recorte; no se usan en el render de la version actual. */
     public float headHeight(float scale) { return height * scale * (headV1 - headV0); }
     public float headWidth(float scale) { return height * scale * aspect * (headU1 - headU0); }
 

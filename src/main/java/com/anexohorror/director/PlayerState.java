@@ -17,8 +17,10 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.EnumMap;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 /** Estado psicologico y de adaptacion por jugador. */
 public final class PlayerState {
@@ -42,6 +44,7 @@ public final class PlayerState {
     long now;
     HorrorVariant lastVariant;
     final ArrayDeque<EventType> recent = new ArrayDeque<>();
+    final ArrayDeque<EventType> eventDeck = new ArrayDeque<>();
     final ArrayDeque<Integer> recentSounds = new ArrayDeque<>();
     private final List<Scheduled> scheduled = new ArrayList<>();
 
@@ -89,8 +92,10 @@ public final class PlayerState {
         }
 
         if (--cooldown > 0) return;
-        boolean ok = triggerRandom(p, l);
-        cooldown = ok ? nextInterval(p, l) : 120;
+        triggerRandom(p, l);
+        // Incluso si un evento no encuentra su escenario, la baraja conserva ese evento
+        // para volver a intentarlo en el siguiente ciclo, sin hacer intentos cada 6 segundos.
+        cooldown = nextInterval(p, l);
     }
 
     static double nightFactor(ServerLevel l) {
@@ -121,73 +126,103 @@ public final class PlayerState {
         double night = nightFactor(l);
         int light = l.getMaxLocalRawBrightness(p.blockPosition());
         double dark = Mth.clamp((8 - light) / 8.0D, 0.0D, 1.0D);
-        double intensity = (0.35D + 0.65D * night + 0.25D * dark) * HorrorConfig.INTENSITY.get();
-        if (HorrorConfig.NIGHT_ESCALATION.get()) intensity *= 1.0D + Math.min(nights(p), 12) * 0.08D;
-        double dayBase = 1500 + r.nextInt(3000);   // 1.2 a 3.7 min (solo sonidos de dia)
-        double nightBase = 500 + r.nextInt(700);   // 25 a 60 s: presencias menos frecuentes, mas inquietantes
+        // Ritmo estable: de dia hay mas silencio; de noche los eventos llegan
+        // con algo mas de frecuencia, pero nunca se convierten en una sucesion continua.
+        double intensity = (0.62D + 0.38D * night + 0.15D * dark) * HorrorConfig.INTENSITY.get();
+        if (HorrorConfig.NIGHT_ESCALATION.get()) intensity *= 1.0D + Math.min(nights(p), 8) * 0.035D;
+        double dayBase = 1100 + r.nextInt(700);   // 55-90 s antes del factor de intensidad
+        double nightBase = 850 + r.nextInt(450); // 42-65 s de noche
         double base = HorrorUtil.lerp(dayBase, nightBase, night);
         double ticks = base / Math.max(0.1D, intensity);
         int roll = r.nextInt(100);
-        if (roll < 8) ticks = 140 + r.nextInt(220);     // raras rafagas: romper la calma sin saturar
-        else if (roll < 23) ticks *= 2.0D;                // calma larga e impredecible
-        if (idleTicks > 600) ticks *= 0.75D;              // el jugador quieto atrae mas atencion
-        return (int) Math.max(80, ticks);
+        if (roll < 5) ticks = 320 + r.nextInt(180); // pausa corta excepcional, no una rafaga constante
+        else if (roll < 18) ticks *= 1.35D;          // silencios largos para conservar tension
+        if (idleTicks > 600) ticks *= 0.90D;
+        return (int) Mth.clamp(ticks, 300.0D, 5200.0D); // 15 s a 4 min 20 s
     }
 
-    private boolean triggerRandom(ServerPlayer p, ServerLevel l) {
-        EnumMap<EventType, Double> w = weights(p, l);
-        while (!w.isEmpty()) {
-            EventType t = HorrorUtil.pickWeighted(p.getRandom(), w);
-            if (HorrorEvents.run(t, p, l, this)) {
-                recent.addLast(t);
-                while (recent.size() > 6) recent.removeFirst();
-                return true;
+    /**
+     * Baraja justa por jugador: cada tipo normal se retira de la baraja al ejecutarse,
+     * y solo vuelve cuando los demas hayan tenido su oportunidad. Si un evento no puede
+     * ejecutarse por el entorno o por el limite de entidades, vuelve al final de la cola.
+     */
+    private void refillEventDeck(ServerPlayer p) {
+        List<EventType> pool = new ArrayList<>(Arrays.asList(EventType.values()));
+        Collections.shuffle(pool, new Random(p.getRandom().nextLong()));
+        // Evita que la nueva ronda empiece con uno de los ultimos eventos de la ronda anterior.
+        int guard = Math.min(recent.size(), Math.max(0, pool.size() - 1));
+        for (int i = 0; i < guard && recent.contains(pool.get(0)); i++) {
+            Collections.rotate(pool, -1);
+        }
+        eventDeck.addAll(pool);
+    }
+
+    private void refillRoutineEvents(ServerPlayer p) {
+        List<EventType> pool = new ArrayList<>();
+        for (EventType type : EventType.values()) {
+            if (type != EventType.HUNT && type != EventType.OTHER && !eventDeck.contains(type)) {
+                pool.add(type);
             }
-            w.remove(t);
+        }
+        if (pool.isEmpty()) return;
+        Collections.shuffle(pool, new Random(p.getRandom().nextLong()));
+        int guard = Math.min(recent.size(), Math.max(0, pool.size() - 1));
+        for (int i = 0; i < guard && recent.contains(pool.get(0)); i++) {
+            Collections.rotate(pool, -1);
+        }
+        eventDeck.addAll(pool);
+    }
+
+    private boolean temporarilyLocked(EventType type, ServerPlayer p, ServerLevel l) {
+        long gameTime = l.getGameTime();
+        if (type == EventType.SILENCE && !HorrorConfig.SILENCE_EVENTS.get()) return true;
+        if (type == EventType.HUNT) {
+            return !HorrorConfig.HUNT_ENABLED.get()
+                    || !HorrorUtil.entitiesAllowed(l)
+                    || nights(p) < HorrorConfig.HUNT_MIN_NIGHT.get()
+                    || gameTime - lastHunt < HorrorConfig.HUNT_COOLDOWN_MIN.get() * 1200L;
+        }
+        if (type == EventType.OTHER) {
+            return !HorrorConfig.OTHER_ENABLED.get()
+                    || !HorrorUtil.entitiesAllowed(l)
+                    || l.getDifficulty() == net.minecraft.world.Difficulty.PEACEFUL
+                    || nights(p) < HorrorConfig.OTHER_MIN_NIGHT.get()
+                    || gameTime - lastOther < HorrorConfig.OTHER_COOLDOWN_MIN.get() * 1200L
+                    || !l.getEntitiesOfClass(com.anexohorror.entity.OtherEntity.class,
+                            p.getBoundingBox().inflate(160.0D)).isEmpty();
         }
         return false;
     }
 
-    EnumMap<EventType, Double> weights(ServerPlayer p, ServerLevel l) {
-        boolean night = isNight(l);
-        boolean ug = isUnderground(p, l);
-        boolean in = isIndoors(p, l);
-        boolean idle = idleTicks > 600;
-        EnumMap<EventType, Double> w = new EnumMap<>(EventType.class);
-        w.put(EventType.STARE, (ug ? 1.0D : in ? 0.8D : 3.0D) * (1.0D + bold * 0.3D));
-        w.put(EventType.PERIPHERAL, 2.2D * (1.0D + jumpy * 0.8D));
-        w.put(EventType.PEEK, 2.5D * (1.0D + bold * 0.6D) * (in || ug ? 1.5D : 1.0D) * (idle ? 1.4D : 1.0D));
-        w.put(EventType.DOOR, in ? 3.5D : 1.2D);
-        w.put(EventType.BED, (night ? 2.4D : 1.0D) * (in ? 2.0D : 0.8D));
-        w.put(EventType.CAVE, ug ? 5.0D : 0.0D);
-        boolean fake = HorrorConfig.FAKE_SOUNDS.get();
-        w.put(EventType.FAKE_SOUND, fake ? 3.0D * (1.0D + jumpy * 0.5D) : 0.0D);
-        w.put(EventType.FOOTSTEPS, fake ? (night ? 2.2D : 1.0D) * (idle ? 1.5D : 1.0D) : 0.0D);
-        w.put(EventType.SILENCE, HorrorConfig.SILENCE_EVENTS.get() ? 1.0D + fear * 0.8D : 0.0D);
-        if (HorrorUtil.isNightTime(l)) {
-            for (EventType t : new EventType[]{EventType.STARE, EventType.PERIPHERAL, EventType.PEEK, EventType.DOOR}) {
-                w.computeIfPresent(t, (k, v) -> v * 1.5D);          // mas presencias de noche
+    private boolean triggerRandom(ServerPlayer p, ServerLevel l) {
+        if (eventDeck.isEmpty()) refillEventDeck(p);
+        int attempts = eventDeck.size();
+        for (int i = 0; i < attempts; i++) {
+            EventType type = eventDeck.removeFirst();
+            if (temporarilyLocked(type, p, l)) {
+                eventDeck.addLast(type);
+                continue;
             }
-            w.computeIfPresent(EventType.FAKE_SOUND, (k, v) -> v * 0.6D);
-            w.computeIfPresent(EventType.FOOTSTEPS, (k, v) -> v * 0.7D);
-            w.put(EventType.WINDOW, in ? 3.0D : 1.2D);
-            w.put(EventType.HUNT, 0.28D + Math.min(nights(p), 10) * 0.045D);
-            w.put(EventType.OTHER, (HorrorConfig.OTHER_ENABLED.get() && nights(p) >= HorrorConfig.OTHER_MIN_NIGHT.get()) ? 0.12D : 0.0D);
-            w.put(EventType.BLACKOUT, 0.9D + fear * 0.6D);
-            w.put(EventType.STATIC_BURST, 1.0D);
-            w.put(EventType.FAR_CALL, HorrorConfig.FAKE_SOUNDS.get() ? 1.4D : 0.0D);
-            w.put(EventType.FAKE_CHAT, 0.5D);
+            if (HorrorEvents.run(type, p, l, this)) {
+                recent.addLast(type);
+                while (recent.size() > 6) recent.removeFirst();
+                return true;
+            }
+            // No se descarta un evento fallido: se pospone para otra oportunidad.
+            eventDeck.addLast(type);
         }
-        if (!HorrorUtil.isNightTime(l)) { // las presencias solo salen de noche; de dia quedan los eventos sin entidad
-            w.remove(EventType.STARE);
-            w.remove(EventType.PERIPHERAL);
-            w.remove(EventType.PEEK);
-            w.remove(EventType.BED);
-            w.remove(EventType.CAVE);
-        }
-        for (EventType t : recent) w.computeIfPresent(t, (k, v) -> v * 0.4D); // evita patrones predecibles
-        w.entrySet().removeIf(e -> e.getValue() <= 0.0D);
-        return w;
+        // Si solo quedan los dos eventos especiales bloqueados por progresion/cooldown,
+        // siguen esperando, pero la rotacion de sucesos comunes empieza otra vuelta.
+        refillRoutineEvents(p);
+        return false;
+    }
+
+    public String nextEventName() {
+        return eventDeck.isEmpty() ? "baraja nueva" : eventDeck.peekFirst().name().toLowerCase();
+    }
+
+    public int pendingEvents() {
+        return eventDeck.size();
     }
 
     static int nights(ServerPlayer p) {

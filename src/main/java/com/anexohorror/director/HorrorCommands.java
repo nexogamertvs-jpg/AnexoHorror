@@ -53,13 +53,7 @@ public final class HorrorCommands {
                 src.sendFailure(Component.literal("Evento desconocido: " + name));
                 return 0;
             }
-            boolean ok;
-            HorrorUtil.forceDay = true;
-            try {
-                ok = HorrorEvents.run(t, p, p.serverLevel(), HorrorDirector.stateFor(p));
-            } finally {
-                HorrorUtil.forceDay = false;
-            }
+            boolean ok = HorrorEvents.runCommand(t, p, p.serverLevel(), HorrorDirector.stateFor(p));
             if (ok) src.sendSuccess(() -> Component.literal("Evento ejecutado: " + t), false);
             else src.sendFailure(Component.literal("No hubo lugar valido para: " + t));
             return ok ? 1 : 0;
@@ -116,8 +110,9 @@ public final class HorrorCommands {
         try {
             ServerPlayer p = src.getPlayerOrException();
             PlayerState st = HorrorDirector.stateFor(p);
-            String msg = String.format("miedo=%.2f audaz=%.2f asustadizo=%.2f proximoEvento=%ds noche=%.2f",
-                    st.fear, st.bold, st.jumpy, st.cooldown / 20, PlayerState.nightFactor(p.serverLevel()));
+            String msg = String.format("miedo=%.2f audaz=%.2f asustadizo=%.2f proximoEvento=%ds siguiente=%s restantes=%d noche=%.2f",
+                    st.fear, st.bold, st.jumpy, st.cooldown / 20, st.nextEventName(), st.pendingEvents(),
+                    PlayerState.nightFactor(p.serverLevel()));
             src.sendSuccess(() -> Component.literal(msg), false);
             return 1;
         } catch (Exception ex) {

@@ -38,6 +38,7 @@ public final class PsychoClientTick {
     private static int flashCountdown = -1;
     private static int lastFlash = -1;
     private static int tinnitusIn = -1;
+    private static int signalBurstCooldown = -1;
 
     // mirada congelada
     private static int lockEntityId = -1;
@@ -61,6 +62,7 @@ public final class PsychoClientTick {
             wasInView = false;
             flashCountdown = -1;
             tinnitusIn = -1;
+            signalBurstCooldown = -1;
             lockActive = false;
             lockEntityId = -1;
             PsychoOverlay.reset();
@@ -68,10 +70,18 @@ public final class PsychoClientTick {
         }
         if (mc.isPaused()) return;
 
-        // ---- grano suave de fondo durante la noche
+        // ---- senal analogica permanente: apenas perceptible de dia, degradada de noche
         long dayT = mc.level.getDayTime() % 24000L;
         boolean night = dayT >= 13000L && dayT < 23000L;
-        PsychoOverlay.ambient = (night && ClientConfig.NIGHT_GRAIN.get()) ? 0.10F : 0.0F;
+        PsychoOverlay.ambient = ClientConfig.NIGHT_GRAIN.get() ? (night ? 0.085F : 0.028F) : 0.0F;
+        if (signalBurstCooldown < 0) signalBurstCooldown = 900 + RNG.nextInt(1100);
+        else if (--signalBurstCooldown <= 0) {
+            // Interferencia breve, no un screamer: la cinta falla y vuelve a estabilizarse.
+            if (night && mc.screen == null && RNG.nextFloat() < 0.78F) {
+                triggerStatic(3 + RNG.nextInt(5));
+            }
+            signalBurstCooldown = night ? 1500 + RNG.nextInt(2400) : 2600 + RNG.nextInt(4200);
+        }
 
         // ---- mirada hacia presencias
         float best = 0.0F;
@@ -81,7 +91,10 @@ public final class PsychoClientTick {
         for (Entity en : mc.level.entitiesForRendering()) {
             if (!(en instanceof HorrorEntity he)) continue;
             if (he.getMode() == HorrorMode.PERIPHERAL) continue;
-            Vec3 to = he.position().add(0.0D, he.spriteHover() + he.spriteHeight() * 0.6D, 0.0D).subtract(eye);
+            double targetY = he.getMode() == HorrorMode.PEEK
+                    ? he.spriteHover() + HorrorEntity.HEAD_CENTER
+                    : he.spriteHover() + he.spriteHeight() * 0.6D;
+            Vec3 to = he.position().add(0.0D, targetY, 0.0D).subtract(eye);
             double d = to.length();
             if (d > 64.0D || d < 0.5D) continue;
             if (he.getMode() == HorrorMode.HUNT) hunt = Math.max(hunt, (float) (1.0D - d / 45.0D)); // te persigue: el miedo sube aunque no mires

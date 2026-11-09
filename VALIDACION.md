@@ -1,41 +1,58 @@
-# Validacion de AnexoHorror 1.10.0
+# AnexoHorror 1.10.5 — validación del paquete fuente
 
-## Cambios incluidos
-- La musica deja de ejecutarse por el cambio de noche; cuatro pistas nuevas se seleccionan al azar al materializarse una entidad, con enfriamiento de 120 segundos por jugador.
-- El VHS se dispara al cruzar el tick 13000, al cargar un mundo que ya esta de noche y al entrar un jugador durante la noche (una vez por noche y jugador, en modo `NIGHTFALL`).
-- El HUD VHS solo se muestra de noche y la cola del video ya no expira mientras el cliente tiene otra pantalla abierta.
-- Las frases de pantalla aparecen de forma aleatoria y menos frecuente.
-- Las presencias 2D reciben 160 puntos de vida y pueden recibir daño; `El Otro` conserva sus 350 puntos.
-- El director se ajustó para mantener a las presencias comunes a mayor distancia y con intervalos iniciales de unos 25-60 segundos; la frecuencia y la probabilidad de caza aumentan gradualmente con las noches.
-- La animacion de las presencias incluye respiracion, balanceo, micro-movimiento y espasmos breves.
-- El evento de puertas puede abrir una puerta, revelar una cabeza desde el lateral y, en algunos casos, extender la mano hasta un maximo de 7 bloques. Solo mata si el jugador sigue al alcance y no se aparta del extremo.
-- El sonido de persecucion se reproduce al iniciar la fase de caza.
-- Se integran cuatro pistas musicales, un sonido ambiental, el grito de persecucion y la mano del paquete adicional.
-- Cada intento de dormir cancela el descanso y dispara un screamer aleatorio con el texto solicitado.
+## Cambios preparados
 
-## Comprobaciones realizadas
-- RAR del proyecto 1.9.0 extraido: 117 archivos.
-- Paquete de recursos extraido: 7 archivos.
-- Los seis audios nuevos se convirtieron a OGG Vorbis.
-- `sounds.json` se valido como JSON y sus 25 eventos tienen archivos de audio presentes.
-- La textura de la mano se convirtio a PNG RGBA con el fondo blanco eliminado.
-- Se comprobaron balance de llaves y parentesis en las clases Java modificadas.
-- `javac` no reporto errores de sintaxis, pero no pudo compilar las clases porque este entorno no contiene las dependencias de Minecraft/Forge.
+- Modo PEEK 2D actualizado para dibujar solo el recorte facial individual de cada una de las siete presencias comunes, con inclinación y giro sutiles.
+- Búsqueda de bloques sólidos a diferentes alturas y ángulos; comprueba visibilidad parcial y utiliza entrada aleatoria desde izquierda, derecha, arriba o abajo.
+- PEEK aleatorio poco frecuente durante el día, además de los eventos nocturnos. El comando `/anexohorror event peek` usa la nueva ruta.
+- Pantalla CreditsScreen en cada conexión al mundo/servidor, con cara de EYE, versión, créditos a NexoGamerTvs y enlace de YouTube.
+- Las seis pistas clasificadas como música (`entity_music_1..4`, `intro`, `dark_tape`) están limitadas a 29,95 s. Los efectos de sonido se conservan completos.
 
-## Compilacion pendiente
-No se pudo ejecutar `gradle build` en este entorno: no hay Gradle instalado ni cache local de Forge/Minecraft. Se agrego `.github/workflows/build.yml` para que GitHub Actions ejecute la compilacion con Java 17 y Gradle 8.1.1 al subir el proyecto.
+## Validaciones estáticas
 
-**No afirmar que el mod esta compilado o probado dentro de Minecraft hasta que la ejecucion `Build AnexoHorror` de GitHub Actions termine correctamente y se pruebe el JAR en Forge 1.20.1 / 47.2.0.**
+- JSON del mod parseados.
+- Texturas faciales de las siete entidades y texturas emisivas presentes.
+- Textura `credits_face.png` creada en PNG RGBA de 112x112.
+- Duración de las seis pistas musicales comprobada con ffprobe y menor o igual a 30 s.
+- Los efectos de sonido no musicales conservan sus bytes originales respecto a 1.10.2.
+- Se revisaron las referencias de clases, recursos, eventos PEEK y comandos.
+- Se ejecutó una comprobación sintáctica de Java; no se dispone de Gradle ni de las dependencias Forge 1.20.1 en este entorno, por lo que no se certifica compilación ni ejecución dentro del juego.
+- ZIP final sometido a prueba de integridad.
 
-## Configuracion heredada
-Los archivos `anexohorror-common.toml` que ya existan pueden conservar sus valores anteriores. La logica aplica un minimo de acecho, pero para usar los valores completos recomendados revisa `minDistanceDay = 24` y `minDistanceNight = 18`.
+## Pruebas pendientes en Minecraft Forge 1.20.1
 
-## Pruebas dentro del juego
-1. ` /time set 12000 ` y luego ` /time set 13000 `: confirmar HUD y video VHS en modo `NIGHTFALL`.
-2. Entrar al mundo directamente de noche: confirmar que el video no se pierde durante la carga.
-3. ` /anexohorror spawn ` varias veces: comprobar que la musica solo aparece a veces y no se reproduce por el simple cambio de hora.
-4. ` /anexohorror event door ` junto a una puerta: comprobar golpes, apertura, cabeza asomandose y mano en los encuentros que la seleccionen.
-5. ` /anexohorror event hunt `: comprobar el grito al comenzar la persecucion.
-6. Atacar una presencia con armas: comprobar que resiste mas que un golem de hierro y que puede morir tras recibir suficiente daño.
-7. Intentar dormir varias veces: comprobar que cada intento cancela el sueño y muestra el screamer con `NO ESCAPARÁS DE ESTA REALIDAD`.
-8. Probar con dos jugadores y comprobar que la musica, los screamers y las apariciones dirigidas a un jugador no se mezclan entre clientes.
+1. Entrar a un mundo y revisar la pantalla de créditos, botón de canal y botón CONTINUAR.
+2. Ejecutar `/anexohorror event peek` cerca de bloques, paredes, pilares y desniveles; repetirlo para comprobar las cuatro direcciones y las siete caras.
+3. Probar PEEK tanto de día como de noche; durante el día debe ser poco frecuente y no acumular más de una presencia común.
+4. Confirmar que las entidades no muestran el torso durante PEEK y que la inclinación de la cabeza es sutil.
+5. Comprobar la longitud de las pistas durante el juego y que persecución, respiración, crujidos y sonido distante siguen completos.
+6. Ejecutar `gradle --no-daemon build` con Java 17 / ForgeGradle y probar el `.jar` en una instancia real.
+
+**Estado:** fuente actualizada y validaciones estáticas realizadas. No se ha generado ni certificado un `.jar` final; el comportamiento visual debe confirmarse dentro del juego.
+
+
+## 1.10.4 — nuevos eventos
+
+- Se incorporan 12 tipos de eventos: `wall_taps`, `door_rattle`, `glass_scratch`, `ceiling_steps`, `tape_corruption`, `double_peek`, `distant_stare`, `breath_behind`, `approaching_steps`, `false_block_break`, `second_presence` y `voice_echo`.
+- Todos se exponen en las sugerencias de `/anexohorror event <nombre>` y tienen rutas de ejecución directas para pruebas.
+- Los sonidos son posicionales y reutilizan audio ya incluido; ningún evento rompe bloques, cambia estados de puertas o inflige daño.
+- Las probabilidades son bajas/moderadas y quedan sujetas al historial de eventos recientes.
+- Pendiente de compilación con ForgeGradle y pruebas dentro de Minecraft: el entorno de preparación no dispone de Gradle ni de dependencias Forge.
+
+
+## 1.10.5 — rotación justa y control de entidades
+
+- Reemplazada la selección de pesos que favorecía repetidamente a los eventos comunes por una baraja por jugador con todos los valores de `EventType`. La baraja se mezcla y retira un evento cuando logra ejecutarse; los que no son válidos se posponen al final para reintentarse.
+- Se conservan los bloqueos intencionales de `HUNT` y `OTHER` (noche mínima, configuración, dificultad y cooldown).
+- Añadidas alternativas ambientales para `STARE`, `PERIPHERAL`, `PEEK`, `BED`, `CAVE`, `WINDOW`, `FOOTSTEPS`, `DISTANT_STARE`, `DOUBLE_PEEK` y `SECOND_PRESENCE` si no hay una ubicación o cupo de entidad adecuado.
+- El límite efectivo de presencias comunes queda en dos por jugador de noche y una de día; `maxEntities` se limita a 1–2 también en instalaciones con TOML antiguo.
+- Los intervalos de eventos se ajustan para mantener pausas sin reintentos excesivos. El comando `/anexohorror status` informa el próximo evento y los eventos pendientes.
+
+## Validación de la entrega 1.10.5
+
+- 28 valores de `EventType` comprobados y los 28 tienen una rama correspondiente en `HorrorEvents.run`.
+- 12 archivos JSON parseados correctamente.
+- La búsqueda global confirma que el límite configurado de entidades se consulta a través de `entityCap()` y queda limitado a 2.
+- La comprobación de sintaxis de `javac` no mostró errores de parser; la compilación completa se detiene por la ausencia de los paquetes Minecraft/Forge.
+- Gradle no está instalado en este entorno. La compilación con Gradle/Forge 1.20.1 y una prueba de varias rondas dentro del juego siguen pendientes.
+- El ZIP final se somete a prueba de integridad antes de entregarse.

@@ -21,8 +21,6 @@ public final class ClientConfig {
     public static final ForgeConfigSpec.BooleanValue CAMERA_SHAKE;
     public static final ForgeConfigSpec.BooleanValue NIGHT_GRAIN;
     public static final ForgeConfigSpec.BooleanValue NIGHT_TITLE;
-    public static final ForgeConfigSpec.BooleanValue GLOW;
-    public static final ForgeConfigSpec.DoubleValue GLOW_STRENGTH;
     public static final ForgeConfigSpec.BooleanValue SCREEN_EFFECTS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> SEEN_WORLDS;
 
@@ -46,12 +44,10 @@ public final class ClientConfig {
         SCREEN_EFFECTS = b.comment("Tinte, vineta, escaneo y grano al mirar una presencia.").define("effects", true);
         SCREEN_TEXT = b.comment("Frases en pantalla cuando aparece una presencia.").define("text", true);
         SYMBOLS = b.comment("Signos extranos que aparecen de forma ocasional.").define("symbols", true);
-        VHS_HUD = b.comment("Marcas de camara VHS (REC, PLAY, contador y fecha) durante la noche.").define("vhsHud", true);
+        VHS_HUD = b.comment("Marcas de camara VHS (REC, PLAY, contador y fecha) durante toda la partida.").define("vhsHud", true);
         CAMERA_SHAKE = b.comment("Leve temblor de camara al mirar una presencia y durante los screamers.").define("cameraShake", true);
-        NIGHT_GRAIN = b.comment("Grano y vineta muy suaves durante toda la noche.").define("nightGrain", true);
+        NIGHT_GRAIN = b.comment("Grano, vineta e interferencia analogica: suaves de dia y mas visibles de noche.").define("nightGrain", true);
         NIGHT_TITLE = b.comment("Al empezar cada noche (menos la primera) muestra el dia en rojo con gotas de sangre.").define("nightTitle", true);
-        GLOW = b.comment("Aura luminosa suave alrededor de las presencias.").define("glow", true);
-        GLOW_STRENGTH = b.comment("Intensidad del aura (1.0 = normal, 0.5 = mas tenue).").defineInRange("glowStrength", 1.0D, 0.0D, 3.0D);
         b.pop();
         SPEC = b.build();
     }

@@ -7,7 +7,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 description='''
-Mod de terror analogico y psicologico. Presencias que acechan desde las sombras, con eventos especiales de persecucion.
+Terror analogico y psicologico para Minecraft vanilla render: acecho desde las sombras, interferencia VHS y ojos emisivos sin requerir shaders.
 '''
 
 [[dependencies.${mod_id}]]

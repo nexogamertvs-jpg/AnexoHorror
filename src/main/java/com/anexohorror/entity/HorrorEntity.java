@@ -7,7 +7,6 @@ import com.anexohorror.net.ClientEffectPacket;
 import com.anexohorror.net.ModNetwork;
 import com.anexohorror.registry.ModSounds;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -53,6 +52,8 @@ public class HorrorEntity extends Mob {
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_HAND_PROGRESS =
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_PEEK_LEAN =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
 
     // Estado solo de servidor (la entidad no se guarda en disco: noSave()).
     private UUID ownerId;
@@ -70,7 +71,7 @@ public class HorrorEntity extends Mob {
     private boolean visibleCache;
     private boolean allowDay;
 
-    // animacion de asomarse (solo cabeza): sale lentamente desde un punto oculto hasta su posicion final
+    // Animacion sincronizada: la cabeza se desliza desde el borde y se ladea ligeramente.
     public static final float HEAD_CENTER = 1.55F;
     private boolean peekAnim;
     private double peekBx, peekBy, peekBz;
@@ -80,6 +81,11 @@ public class HorrorEntity extends Mob {
     // persecucion: 0 = no, 1 = mirada congelada, 2 = cazando
     private int huntPhase;
     private int huntTimer;
+    private int huntLostSightTicks;
+    private boolean aggressiveHunt;
+    // El STALKER se detiene cuando el jugador lo enfoca y avanza a pequenos saltos
+    // solo cuando deja de mirarlo, siguiendo la mecanica de acecho de Bedrock.
+    private int stalkerStepCooldown = 10;
 
     // Mano: ataque escenico sincronizado con el cliente, limitado a siete bloques.
     private int handTicks;
@@ -106,6 +112,7 @@ public class HorrorEntity extends Mob {
         this.entityData.define(DATA_HAND_Y, 0.0F);
         this.entityData.define(DATA_HAND_Z, 0.0F);
         this.entityData.define(DATA_HAND_PROGRESS, 0.0F);
+        this.entityData.define(DATA_PEEK_LEAN, 0.0F);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -122,7 +129,7 @@ public class HorrorEntity extends Mob {
         this.entityData.set(DATA_VARIANT, variant.ordinal());
         this.entityData.set(DATA_MODE, mode.ordinal());
         this.entityData.set(DATA_SCALE, scale);
-        this.maxLife = maxLife;
+        this.maxLife = variant == HorrorVariant.STALKER ? Math.max(maxLife, 1400) : maxLife;
         this.stareLimit = stareLimit;
         this.grace = grace;
         this.glimpseDelay = glimpseDelay;
@@ -144,6 +151,7 @@ public class HorrorEntity extends Mob {
     public float getHandY() { return this.entityData.get(DATA_HAND_Y); }
     public float getHandZ() { return this.entityData.get(DATA_HAND_Z); }
     public float getHandProgress() { return this.entityData.get(DATA_HAND_PROGRESS); }
+    public float getPeekLean() { return this.entityData.get(DATA_PEEK_LEAN); }
 
     /** Inicia la mano. El extremo nunca se sincroniza a mas de 7 bloques del origen. */
     public void beginHandAttack(ServerPlayer target, int duration) {
@@ -168,35 +176,38 @@ public class HorrorEntity extends Mob {
         return m == HorrorMode.LOW ? 0.0F : v.hover * scale;
     }
 
-    /** Modo asomarse en un plano 2D: solo se dibuja la cabeza, a la altura de los ojos. */
-    public boolean isHeadOnly() { return getMode() == HorrorMode.PEEK; }
+    /** PEEK conserva la silueta completa: el bloque oculta torso y parte del cuerpo. */
+    public float spriteHeight() { return getVariant().height * getVisualScale(); }
 
-    public float spriteHeight() {
-        return isHeadOnly() ? getVariant().headHeight(getVisualScale()) : getVariant().height * getVisualScale();
-    }
+    public float spriteWidth() { return getVariant().height * getVisualScale() * getVariant().aspect; }
 
-    public float spriteWidth() {
-        return isHeadOnly() ? getVariant().headWidth(getVisualScale()) : getVariant().height * getVisualScale() * getVariant().aspect;
-    }
-
-    public float spriteHover() {
-        return isHeadOnly() ? HEAD_CENTER - spriteHeight() / 2.0F : hoverOf(getVariant(), getMode(), getVisualScale());
-    }
+    public float spriteHover() { return hoverOf(getVariant(), getMode(), getVisualScale()); }
 
     /** Posicion final (bx,by,bz) y vector hacia donde esta oculta (dx,dy,dz); sale en reveal ticks. */
-    public void setPeekAnim(double bx, double by, double bz, float dx, float dy, float dz, int reveal) {
+    public void setPeekAnim(double bx, double by, double bz, float dx, float dy, float dz,
+                            int reveal, float leanSide) {
         this.peekAnim = true;
         this.peekBx = bx; this.peekBy = by; this.peekBz = bz;
         this.peekDx = dx; this.peekDy = dy; this.peekDz = dz;
         this.revealTicks = Math.max(1, reveal);
+        // Inclina hombros y cabeza hacia el hueco por donde entra la figura.
+        float side = Math.signum(leanSide);
+        if (side == 0.0F) side = this.random.nextBoolean() ? 1.0F : -1.0F;
+        float angle = side * (6.5F + this.random.nextFloat() * 5.5F);
+        this.entityData.set(DATA_PEEK_LEAN, angle);
     }
 
     public int getRevealTicks() { return revealTicks; }
 
     /** Mirada congelada (lockTicks) y despues persecucion frenetica hasta alcanzar al jugador. */
-    public void beginHunt(int lockTicks) {
+    public void beginHunt(ServerPlayer target, int lockTicks) {
         this.huntPhase = 1;
         this.huntTimer = lockTicks;
+        this.huntLostSightTicks = 0;
+        int nights = target.getPersistentData().getCompound("PlayerPersisted").getInt("anexohorror_nights");
+        // La persecucion evoluciona con las noches; al principio aun puede perder el rastro.
+        float aggressionChance = Mth.clamp((nights - 2) * 0.075F, 0.0F, 0.68F);
+        this.aggressiveHunt = this.random.nextFloat() < aggressionChance;
     }
 
     public boolean isHunting() { return huntPhase != 0; }
@@ -206,13 +217,7 @@ public class HorrorEntity extends Mob {
         super.tick();
         this.noPhysics = true;
         if (this.level().isClientSide) {
-            if (this.tickCount % 4 == 0) { // ceniza lenta alrededor: atmosfera, sin molestar
-                this.level().addParticle(ParticleTypes.ASH,
-                        getX() + (this.random.nextDouble() - 0.5D) * spriteWidth() * 0.8D,
-                        getY() + spriteHover() + this.random.nextDouble() * spriteHeight(),
-                        getZ() + (this.random.nextDouble() - 0.5D) * 0.6D, 0.0D, -0.015D, 0.0D);
-            }
-            return;
+            return; // sin particulas alrededor: la unica luz propia de la presencia son sus ojos
         }
         if (!(this.level() instanceof ServerLevel sl)) return;
         if (ownerId == null) { this.discard(); return; }
@@ -253,29 +258,75 @@ public class HorrorEntity extends Mob {
 
         Vec3 eye = p.getEyePosition();
         float h = spriteHeight();
-        Vec3 center = new Vec3(getX(), getY() + spriteHover() + h * 0.6D, getZ());
+        float sampleHover = spriteHover();
+        float sampleHeight = h;
+        float sampleWidth = spriteWidth();
+        double centerOffset = sampleHover + h * 0.6D;
+        if (getMode() == HorrorMode.PEEK) {
+            sampleHeight = h * (getVariant().headV1 - getVariant().headV0);
+            sampleWidth = spriteWidth() * (getVariant().headU1 - getVariant().headU0);
+            sampleHover = spriteHover() + HEAD_CENTER - sampleHeight * 0.5F;
+            centerOffset = spriteHover() + HEAD_CENTER;
+        }
+        Vec3 center = new Vec3(getX(), getY() + centerOffset, getZ());
         double cos = p.getLookAngle().dot(center.subtract(eye).normalize());
 
         if (life % 2 == 0) {
             visibleCache = HorrorUtil.visibleSamples(sl, eye, p, position(),
-                    spriteHover(), h, spriteWidth()) > 0;
+                    sampleHover, sampleHeight, sampleWidth) > 0;
+        }
+
+        boolean inView = cos > 0.74D && visibleCache;
+
+        // Mecánica propia del STALKER: no camina mientras está bajo la mirada directa.
+        // Cuando el jugador aparta la cámara, gana terreno lentamente y sin sonidos de pasos.
+        if (getVariant() == HorrorVariant.STALKER) {
+            if (inView) {
+                hasBeenSeen = true;
+                unseenTicks = 0;
+                stalkerStepCooldown = 9 + this.random.nextInt(12);
+            } else {
+                unseenTicks++;
+                if (--stalkerStepCooldown <= 0) {
+                    stalkerStepCooldown = 9 + this.random.nextInt(12);
+                    creepTowardPlayer(sl, p, dist);
+                }
+            }
+            return;
         }
 
         if (getMode() == HorrorMode.PERIPHERAL) {
-            // Solo se ve de reojo: en cuanto el jugador gira y la mira, se esfuma.
+            // Las demas presencias perifericas se esfuman si el jugador las enfoca.
             if (cos > 0.90D && visibleCache) {
                 if (++glimpseTicks >= glimpseDelay) vanish(VanishReason.GLIMPSED);
             }
             return;
         }
 
-        boolean inView = cos > 0.74D && visibleCache;
         if (inView) {
             hasBeenSeen = true;
             unseenTicks = 0;
             if (++seenTicks > stareLimit) vanish(VanishReason.STARE_DONE);
         } else if (hasBeenSeen) {
             if (++unseenTicks > grace) vanish(VanishReason.LOOKED_AWAY);
+        }
+    }
+
+    /** Avance discreto solo cuando el jugador no lo mira; nunca atraviesa bloques. */
+    private void creepTowardPlayer(ServerLevel sl, ServerPlayer p, double distance) {
+        if (distance <= vanishDist + 0.75D) return;
+        double dx = p.getX() - getX();
+        double dz = p.getZ() - getZ();
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        if (horizontal < 1.0E-4D) return;
+        double step = Math.min(0.13D + this.random.nextDouble() * 0.08D,
+                Math.max(0.0D, horizontal - vanishDist - 0.35D));
+        if (step <= 0.005D) return;
+        double mx = dx / horizontal * step;
+        double mz = dz / horizontal * step;
+        AABB next = this.getBoundingBox().move(mx, 0.0D, mz);
+        if (sl.noCollision(this, next)) {
+            this.setPos(getX() + mx, getY(), getZ() + mz);
         }
     }
 
@@ -311,7 +362,7 @@ public class HorrorEntity extends Mob {
         if (huntPhase == 1) { // mirada congelada: se queda quieta, mirandote
             if (--huntTimer <= 0) {
                 huntPhase = 2;
-                huntTimer = 1800; // si en 90 s no llega, desaparece
+                huntTimer = aggressiveHunt ? 3000 : 1800; // la variante agresiva persiste 150 s
                 this.entityData.set(DATA_MODE, HorrorMode.HUNT.ordinal());
                 HorrorUtil.sound(p, ModSounds.HUNT_SCREAM.get(), SoundSource.HOSTILE,
                         p.position(), 2.6F, 0.92F);
@@ -322,7 +373,14 @@ public class HorrorEntity extends Mob {
 
         double hd = Math.sqrt(dx * dx + dz * dz);
         double dy = p.getY() - getY();
-        if (hd < 1.8D && Math.abs(dy) < 2.6D) { // alcanzado: nada de dano, solo el screamer
+        // Caza normal: si el jugador se aleja y mantiene la linea de vision rota, el rastro se pierde.
+        // La variante agresiva (mas comun tras varias noches) no abandona la persecucion.
+        if (!aggressiveHunt && hd > 18.0D && !p.hasLineOfSight(this)) {
+            if (++huntLostSightTicks >= 120) { vanish(VanishReason.EXPIRED); return; }
+        } else {
+            huntLostSightTicks = 0;
+        }
+        if (hd < 1.8D && Math.abs(dy) < 2.6D) { // alcanzado: screamer, sin dano adicional
             ModNetwork.send(p, ClientEffectPacket.SCREAMER, 3, 0, "TE ALCANZ\u00d3");
             vanish(VanishReason.TOO_CLOSE);
             return;

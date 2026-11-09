@@ -17,7 +17,7 @@ public final class ModTabs {
     public static final RegistryObject<CreativeModeTab> MAIN = TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.anexohorror"))
             .icon(() -> new ItemStack(ModItems.EGGS.get(HorrorVariant.PEEKER).get()))
-            .displayItems((params, output) -> { ModItems.EGGS.values().forEach(r -> output.accept(r.get())); output.accept(ModItems.EGG_OTHER.get()); })
+            .displayItems((params, output) -> { output.accept(ModItems.CAMERA.get()); ModItems.EGGS.values().forEach(r -> output.accept(r.get())); output.accept(ModItems.EGG_OTHER.get()); })
             .build());
 
     private ModTabs() {}

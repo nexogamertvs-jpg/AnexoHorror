@@ -19,6 +19,8 @@ public final class ClientEffects {
             case ClientEffectPacket.BLOOD_FLASH -> PsychoClientTick.triggerBloodFlash(a);
             case ClientEffectPacket.TITLE -> PsychoClientTick.triggerTitle(text);
             case ClientEffectPacket.LOCK -> PsychoClientTick.triggerLock(a, b, text);
+            case ClientEffectPacket.CAMERA_FLASH -> CameraFlash.trigger(a);
+            case ClientEffectPacket.OPEN_ALMANAC -> AlmanacScreen.open(a);
             default -> { }
         }
     }

@@ -1,19 +1,19 @@
 # AnexoHorror (Forge 1.20.1 / 47.2.0)
 
-Mod de terror analógico y psicológico. Siete presencias principales (seis planos con tus imagenes + una entidad 3D .obj), con comportamiento de acecho. Una variante especial puede iniciar una persecucion y El Otro conserva su combate de jefe.
+Mod de terror analógico y psicológico para Forge 1.20.1. Las presencias usan el renderizador normal de Minecraft: no necesitan shaders. El efecto luminoso se limita a los ojos; no existe aura exterior.
 
 ## Compilar
 Requiere JDK 17 y conexión a internet (descarga Forge/Minecraft).
 
     gradle wrapper --gradle-version 8.1.1     # una sola vez (o copia gradlew + gradle/ del MDK 1.20.1-47.x)
-    ./gradlew build                           # jar en build/libs/anexohorror-1.9.0.jar
+    ./gradlew build                           # jar en build/libs/
 
 Alternativa sin instalar nada: sube la carpeta a GitHub; `.github/workflows/build.yml` compila el jar.
 Para probar: `./gradlew runClient`.
 
 ## Comandos de prueba (OP nivel 2)
 - `/anexohorror spawn [0-5]`  presencia delante de ti (0 peeker, 1 grin, 2 smiler, 3 drawn, 4 crawler, 5 eye, 6 slender 3D)
-- `/anexohorror event <stare|peripheral|peek|door|bed|cave|fake_sound|footsteps|silence|window|hunt|other|blackout|static_burst|far_call|fake_chat>`
+- `/anexohorror event <stare|peripheral|peek|door|bed|cave|fake_sound|footsteps|silence|window|hunt|other|blackout|static_burst|far_call|fake_chat|wall_taps|door_rattle|glass_scratch|ceiling_steps|tape_corruption|double_peek|distant_stare|breath_behind|approaching_steps|false_block_break|second_presence|voice_echo>`
 - `/anexohorror status`       miedo / audacia / nerviosismo aprendidos del jugador
 
 ## Configuración
@@ -95,7 +95,7 @@ silencios y escalada nocturna. Para conservar el acecho a distancia, los valores
 - **Musica aleatoria por aparicion**: se retiró la pista programada al anochecer. Ahora, al materializarse una entidad, existe una probabilidad controlada de reproducir una de cuatro pistas nuevas, con enfriamiento de 120 segundos por jugador para evitar superposiciones.
 - **Sonido de persecucion**: el audio `sonido de persecucion.mp3` se reproduce cuando el cazador pasa de la fase de inmovilizacion a la caza.
 - **Sonidos adicionales**: `sonido.mp3` se integra como audio distante/ambiental y puede aparecer en eventos de acecho y en la secuencia de la mano.
-- **Animacion organica de las presencias**: respiracion lenta, balanceo corporal, micro-oscilaciones y espasmos ocasionales. Se conserva la animacion de asomarse mostrando solo la cabeza.
+- **Animacion organica de las presencias**: respiracion lenta, balanceo corporal, micro-oscilaciones y espasmos ocasionales. La animacion de asomarse ahora mantiene la silueta completa y utiliza el bloque para ocultar torso y parte del cuerpo.
 - **Vida real para las presencias**: las entidades observadoras tienen 160 puntos de vida (80 corazones), armadura y resistencia al empuje; pueden recibir daño y solo desaparecen al morir. El Otro conserva sus 350 puntos de vida.
 - **Evento de puertas**: algunas puertas cercanas se abren solas despues de golpes y crujidos. Una presencia se asoma lentamente por el costado y, en algunos encuentros, extiende la mano proporcionada. El alcance esta limitado a 7 bloques; solo alcanza al jugador si sigue dentro del radio y no se aparta del extremo.
 - **Director de acecho adaptativo**: las presencias comunes aparecen desde mas lejos y con pausas mas largas (aprox. 25-60 s al principio de la noche); cada noche vivida acelera gradualmente los eventos y aumenta el peso de la persecucion especial.
@@ -103,3 +103,78 @@ silencios y escalada nocturna. Para conservar el acecho a distancia, los valores
 - **VHS corregido**: el HUD se muestra durante la noche. El servidor detecta el cruce de 13000 ticks incluso si el tiempo salta sobre ese valor o el mundo carga ya de noche. El video se envía cada noche cuando el modo del cliente es `NIGHTFALL`.
 - **Sueño bloqueado**: cada intento de dormir cancela el descanso y activa un screamer aleatorio con el mensaje exacto **NO ESCAPARÁS DE ESTA REALIDAD**.
 - **Recursos**: cuatro músicas, sonido de persecucion, sonido ambiental y mano recortada con transparencia a partir de los recursos proporcionados.
+
+
+## 1.10.1 — Ajustes de acecho y animaciones
+
+- Las apariciones `PEEK` siempre dibujan la silueta completa: el mundo oculta el torso detrás del bloque mientras la figura entra desde un lateral. La inclinación pivota desde la zona de los hombros, no recorta ni separa la cabeza.
+- El brazo se renderiza en el plano de la cámara, con la geometría orientada hacia el jugador y una extensión de aparición más visible. El alcance real de la mano sigue limitado a 7 bloques.
+- Los comandos `/anexohorror event <nombre>` usan rutas deterministas: `stare`, `peripheral`, `peek` y `hunt` generan su evento directamente; `door` busca la puerta más cercana y, si no encuentra una, usa una esquina de respaldo. `bed`, `cave` y `window` prueban el decorado correspondiente y recurren a un asomo visible si no existe.
+- Inspiración mecánica independiente en *The Stalker Horror* y *LCrandom's Stalker 3D*: acecho por etapas, persecución normal que puede perder el rastro, variantes agresivas que insisten más, y encuentros situacionales desde lejos. No se reutilizan sus archivos, modelos ni código.
+- La agresividad de la caza aumenta gradualmente según las noches sobrevividas. La caza normal puede terminar si el jugador se aleja y mantiene la línea de visión rota; las variantes agresivas persisten más tiempo.
+
+
+## 1.10.2 — identidad analógica y renderizado independiente de shaders
+
+- **Sin aura exterior:** eliminadas las capas que iluminaban la silueta entera, las tres capas rojas de El Otro, el halo del brazo y las partículas de ceniza que flotaban alrededor de las presencias comunes. También se retiraron las texturas antiguas de aura.
+- **Oscuridad real:** el cuerpo ya no recibe un nivel mínimo de luz artificial; respeta la iluminación del mundo. Solo los ojos utilizan luz emisiva completa.
+- **Ojos emisivos solamente:** cada una de las siete presencias 2D tiene una textura overlay del mismo tamaño que su imagen, con puntos de luz ajustados a sus ojos y una paleta propia: rojo, carmesí, ámbar, cian, verde tóxico, verde pálido o blanco frío. El Otro usa un overlay aparte sobre las UV de su rostro.
+- **Sin shaders obligatorios:** el brillo se dibuja con `RenderType.eyes` y luz completa del renderizador de Minecraft. No se requiere Oculus, Iris, OptiFine ni un shader pack para ver los ojos. Los shaders pueden seguir usándose por preferencia, pero ya no controlan este efecto.
+- **Interferencia analógica durante toda la partida:** el HUD de cámara ahora puede verse de día y de noche (`CAM-04`, `REC`, `PLAY`, contador SP, día/hora y estado de señal). De día la capa es discreta; de noche aparecen más grano, tracking y degradación de señal.
+- **Fallos de cinta ocasionales:** añadidas bandas horizontales de tracking, pequeñas separaciones cromáticas y ráfagas breves de estática nocturna, con pausas largas para que no tapen el juego ni saturen el sonido.
+- **STALKER con atención selectiva:** se queda inmóvil mientras el jugador lo mira directamente. Cuando el jugador aparta la vista, avanza muy lentamente en pequeños pasos, sin pasos audibles y sin atravesar colisiones de bloques. Esta variante tiene una permanencia más larga que las demás.
+- **Sin cambiar la identidad de las otras presencias:** las demás siguen usando su comportamiento anterior; la mecánica de acercamiento por mirada pertenece solo a STALKER.
+
+
+
+## 1.10.3 — asomos de cabeza y créditos del creador
+
+- **Asomos de cabeza para las siete presencias 2D:** PEEK deja de mostrar la silueta completa. Cada entidad utiliza su propia región facial UV y sus propios ojos emisivos; el cuerpo no se dibuja durante este encuentro.
+- **Entradas desde distintas direcciones:** cada aparición puede deslizar el rostro desde la izquierda, derecha, arriba o abajo. La cabeza tiene un giro de profundidad y una inclinación sutil, con una pequeña animación de respiración.
+- **Bloques como cobertura:** el director busca bloques sólidos en distintas alturas y alrededor del jugador; coloca el rostro junto a un canto, comprobando que el bloque oculte parte de la cara y que otra parte siga visible. Si no encuentra uno, utiliza la búsqueda de esquinas habitual.
+- **Asomos diurnos raros:** PEEK puede ocurrir durante el día con menos peso y un máximo de una presencia activa; de noche tiene más posibilidades y respeta el límite normal de entidades.
+- **Comando de prueba:** `/anexohorror event peek` fuerza la nueva búsqueda de bloques y el asomo de cabeza. También se conserva el comportamiento visual de cabeza para puertas, ventanas, camas y cuevas que usen el modo PEEK.
+- **Música limitada:** las cuatro pistas aleatorias de aparición, `intro.ogg` y `dark_tape.ogg` quedan en un máximo técnico inferior a 30 segundos. Los efectos (`hunt_scream`, `distant_sound`, voces, golpes, respiración, etc.) conservan sus duraciones completas. El audio de la intro se ha limitado a 29,95 s; el video no se ha recortado.
+- **Pantalla de bienvenida:** al entrar a un mundo o servidor aparece una tarjeta analógica de créditos con el rostro de EYE, el nombre ANEXOHORROR, la versión, Minecraft Forge 1.20.1, el crédito **Creado por NexoGamerTvs** y un botón que abre [el canal de YouTube](https://www.youtube.com/@NexoGamer-t5h). Se cierra con CONTINUAR o ESC. Después, el video VHS de entrada/anochecer conserva su flujo anterior.
+- **Alcance:** el nuevo PEEK cubre las siete presencias 2D comunes (PEEKER, GRIN, SMILER, DRAWN, CRAWLER, EYE y STALKER). **El Otro** permanece como jefe 3D especial con su propio sistema de encuentros, sin convertir sus apariciones de jefe en eventos PEEK normales.
+
+
+## 1.10.4 — repertorio ampliado de eventos analógicos
+
+Se añaden 12 eventos nuevos, integrados con el director adaptativo y los comandos `/anexohorror event <nombre>`:
+
+- `wall_taps`: golpes secos y arañazos que parecen venir de un bloque concreto.
+- `door_rattle`: manija/puerta que cruje y golpea sin modificar ni desbloquear la puerta.
+- `glass_scratch`: arañazos sobre un cristal; ocasionalmente puede continuar con un rostro tras la ventana.
+- `ceiling_steps`: pasos y roces sobre el techo, con sonido posicional.
+- `tape_corruption`: caída breve de señal, corte de ambiente, tinnitus y una voz retardada.
+- `double_peek`: dos asomos de cabeza en lugares distintos, separados por varios segundos.
+- `distant_stare`: una presencia pequeña y muy lejana; si no hay lugar válido, queda una llamada distante.
+- `breath_behind`: respiración muy cercana a la espalda y, a veces, un susurro posterior.
+- `approaching_steps`: pisadas que avanzan desde atrás y se detienen cerca, sin entidad ni daño.
+- `false_block_break`: sonido de bloque rompiéndose sin destruir ni cambiar ningún bloque.
+- `second_presence`: si el jugador llega a observar el primer rostro, puede aparecer otro desde un punto diferente.
+- `voice_echo`: una voz de cinta distante parece repetirse desde detrás del jugador.
+
+Los eventos nuevos reutilizan los recursos de audio existentes, no añaden dependencias ni shaders. Sus pesos son moderados y el historial de eventos recientes reduce repeticiones. Ninguno de estos sucesos destruye bloques, desbloquea puertas, aplica daño ni obliga a iniciar una persecución.
+
+
+## 1.10.5 — rotación justa de eventos y límite de presencias
+
+- **Baraja aleatoria por jugador:** los 28 tipos de eventos se mezclan en una ronda. Cada evento que se ejecuta sale temporalmente de la baraja; no se repite hasta que los demás hayan tenido su oportunidad. El orden se vuelve a mezclar al terminar la ronda.
+- **Reintentos sin bloqueo:** si un evento no puede encontrar una puerta, una cama, cristal, un hueco de aparición o espacio para otra entidad, no se pierde; se pospone para una siguiente oportunidad. Los eventos situacionales tienen alternativas de audio/ambiente para que la experiencia no se quede sin sucesos.
+- **Excepciones de progresión:** `hunt` sigue esperando la noche mínima y su enfriamiento; `other` conserva su requisito de noche, dificultad y enfriamiento de jefe. Permanecen en espera hasta que cumplan sus condiciones, en lugar de desaparecer de la rotación.
+- **Menos entidades simultáneas:** el límite efectivo queda en un máximo de dos presencias comunes por jugador de noche y una de día. Incluso instalaciones que conservaran `maxEntities = 3` quedan limitadas a dos por código. Los eventos `double_peek` y `second_presence` pueden convertirse en un segundo indicio sonoro cuando ya se alcanzó el límite.
+- **Ritmo reajustado:** los intervalos se estabilizan aproximadamente entre 70 y 145 segundos de día y 35–65 segundos de noche (con variaciones de tensión y progresión). Se elimina el reintento cada seis segundos cuando no se encuentra un evento válido.
+- **Estado ampliado:** `/anexohorror status` muestra el siguiente evento de la rotación y cuántos quedan pendientes.
+
+El sistema es por jugador y usa un orden aleatorio sin repetir eventos comunes hasta que la ronda haya avanzado. Los eventos `HUNT` y `OTHER` son especiales y siguen sujetos a sus requisitos de progresión/cooldown.
+
+## Cámara y almanaque de entidades
+
+- Nuevo ítem `anexohorror:camera` (pestaña de creativo AnexoHorror). Clic derecho: foto con flash (enfriamiento de 1,5 s). Agachado + clic derecho: abre el almanaque.
+- Si una presencia o El Otro está dentro del encuadre (~28°, hasta 48 bloques, con línea de visión) la foto la registra; el almanaque muestra todas las entradas bloqueadas hasta ese momento.
+- El registro se guarda en los datos persistentes del jugador (`PlayerPersisted` → `anexohorror_almanac`, máscara de bits) y se conserva al morir.
+- Visor analógico (esquinas, REC, estado del flash) mientras la cámara está en la mano, en primera persona.
+- Archivos nuevos: `almanac/AlmanacEntry`, `almanac/Almanac`, `item/CameraItem`, `client/CameraFlash`, `client/AlmanacScreen`; paquetes reutilizan `ClientEffectPacket` (kinds 8 y 9). Texturas en `textures/item/camera.png` y `textures/gui/almanac/`.
+- Pendiente: compilar con ForgeGradle y probar en el juego.

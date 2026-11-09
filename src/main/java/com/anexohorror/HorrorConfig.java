@@ -35,8 +35,8 @@ public final class HorrorConfig {
                 .define("enabled", true);
         INTENSITY = b.comment("Multiplicador de frecuencia de eventos (1.0 = normal).")
                 .defineInRange("intensity", 1.0D, 0.1D, 5.0D);
-        MAX_ENTITIES = b.comment("Maximo de entidades visibles simultaneas por jugador (de noche).")
-                .defineInRange("maxEntities", 3, 1, 8);
+        MAX_ENTITIES = b.comment("Maximo de entidades visibles simultaneas por jugador (limite efectivo maximo: 2).")
+                .defineInRange("maxEntities", 2, 1, 2);
         MIN_DIST_DAY = b.comment("Distancia minima de aparicion de dia (bloques).")
                 .defineInRange("minDistanceDay", 24, 8, 64);
         MIN_DIST_NIGHT = b.comment("Distancia minima de aparicion de noche (bloques).")
@@ -53,7 +53,7 @@ public final class HorrorConfig {
         b.push("nights");
         BLOCK_SLEEP = b.comment("Impide dormir: cada intento provoca un screamer.").define("blockSleep", true);
         BED_SETS_SPAWN = b.comment("Aunque no puedas dormir, la cama sigue fijando tu punto de reaparicion.").define("bedSetsSpawn", true);
-        NIGHT_ESCALATION = b.comment("Cada noche vivida aumenta un poco la frecuencia de eventos (hasta +96%).").define("nightEscalation", true);
+        NIGHT_ESCALATION = b.comment("Cada noche vivida aumenta suavemente la frecuencia de eventos (hasta +28%).").define("nightEscalation", true);
         b.pop();
         b.push("story");
         STORY_CHESTS = b.comment("Cofres aleatorios con los registros de la historia del Anexo (uno nuevo cada vez que abres el anterior).")

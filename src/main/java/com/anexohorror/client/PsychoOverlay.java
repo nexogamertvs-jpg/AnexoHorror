@@ -189,17 +189,28 @@ public final class PsychoOverlay {
             g.fill(x, y, x + s, y + s, argb((int) (60 * k), c, c, c));
         }
 
-        if (RNG.nextFloat() < 0.04F + 0.12F * k) {
-            int bandH = 4 + RNG.nextInt(14);
+        if (RNG.nextFloat() < 0.0018F + 0.008F * k) {
+            int bandH = 2 + RNG.nextInt(10);
             int y = RNG.nextInt(Math.max(1, h - bandH));
-            int off = 2 + RNG.nextInt(6);
-            g.fill(0, y, w, y + bandH, argb((int) (34 * k), 0xB9, 0xAA, 0xB0));
-            g.fill(off, y, w, y + 1, argb((int) (90 * k), 0xFF, 0x30, 0x40));
-            g.fill(0, y + bandH - 1, w - off, y + bandH, argb((int) (90 * k), 0x30, 0xC0, 0xFF));
+            int off = 2 + RNG.nextInt(9);
+            g.fill(0, y, w, y + bandH, argb((int) (25 * k), 0xC8, 0xC4, 0xBA));
+            g.fill(off, y, w, y + 1, argb((int) (110 * k), 0xFF, 0x30, 0x40));
+            g.fill(0, y + bandH - 1, w - off, y + bandH, argb((int) (100 * k), 0x30, 0xC0, 0xFF));
+        }
+
+        // Corte de tracking horizontal muy breve, como una cinta VHS desajustada.
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level != null && mc.level.getGameTime() % 173L < 2L && k > 0.025F) {
+            long tick = mc.level.getGameTime();
+            int y = (int) Math.floorMod(tick * 47L, Math.max(1, h - 12));
+            int shift = 3 + (int) (tick % 7L);
+            g.fill(0, y, w, y + 2, argb((int) (42 * k), 0xE0, 0xDA, 0xD0));
+            g.fill(shift, y + 2, w, y + 4, argb((int) (48 * k), 0xB8, 0xC7, 0xC9));
+            g.fill(0, y + 4, w - shift, y + 5, argb((int) (65 * k), 0xC0, 0x30, 0x42));
         }
     }
 
-    // ---------------------------------------------------------------- marcas de camara VHS (solo de noche)
+    // ---------------------------------------------------------------- interfaz de camara VHS (dia y noche)
 
     private static void renderVhsHud(GuiGraphics g, int w, int h) {
         if (!ClientConfig.VHS_HUD.get() || scTicks > 0) return;
@@ -207,8 +218,7 @@ public final class PsychoOverlay {
         if (mc.level == null) return;
         long dt = mc.level.getDayTime();
         long t = dt % 24000L;
-        // La interfaz VHS aparece desde el inicio de la noche hasta el amanecer.
-        if (t < 13000L || t >= 23000L) return;
+        // La grabacion analogica acompana toda la partida; de noche la senal se degrada mas.
 
         Font font = mc.font;
         float s = Math.max(1.0F, h / 400.0F);
@@ -219,13 +229,16 @@ public final class PsychoOverlay {
         boolean on = (mc.level.getGameTime() / 20L) % 2L == 0L;
         if (on) g.fill((int) m + jitter, (int) m + (int) (2 * s), (int) (m + 5 * s) + jitter, (int) (m + 7 * s),
                 argb(230, 0xD0, 0x10, 0x18));
-        vhsText(g, font, "REC", m + 8 * s + jitter, m, s);
-        vhsText(g, font, "PLAY >", m + jitter, m + 12 * s, s);
+        vhsText(g, font, "CAM-04", m + jitter, m - 1 * s, s);
+        vhsText(g, font, "REC", m + 8 * s + jitter, m + 10 * s, s);
+        vhsText(g, font, "PLAY >", m + jitter, m + 22 * s, s);
 
         // contador de cinta (arriba a la derecha)
         long sec = mc.level.getGameTime() / 20L;
         String counter = String.format("SP %d:%02d:%02d", sec / 3600L, (sec / 60L) % 60L, sec % 60L);
         vhsText(g, font, counter, w - font.width(counter) * s - m - jitter, m, s);
+        String signal = (t >= 13000L && t < 23000L) ? "SIGNAL: DEGRADADA" : "SIGNAL:  OK";
+        vhsText(g, font, signal, w - font.width(signal) * s - m, h - m - 9 * s, s * 0.82F);
 
         // fecha y hora del mundo (abajo a la izquierda)
         int hour = (int) ((t / 1000L + 6L) % 24L);

@@ -1,7 +1,6 @@
 package com.anexohorror.client;
 
 import com.anexohorror.AnexoHorror;
-import com.anexohorror.ClientConfig;
 import com.anexohorror.entity.OtherEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -22,11 +21,11 @@ import org.joml.Matrix4f;
 /**
  * Dibuja a "El Otro" con el modelo hecho en Blockbench (obj/other.obj + textures/entity/other.png).
  * Animaciones por codigo: respira, se mece, da sacudidas bruscas, carga con temblor antes de golpear y
- * "aparece" con un pequeno salto. Aura en distintos tonos de rojo.
+ * "aparece" con un pequeno salto. Solo los ojos tienen iluminacion emisiva.
  */
 public class OtherRenderer extends EntityRenderer<OtherEntity> {
     private static final ResourceLocation TEX = new ResourceLocation(AnexoHorror.MODID, "textures/entity/other.png");
-    private static final ResourceLocation AURA = new ResourceLocation(AnexoHorror.MODID, "textures/entity/aura_other.png");
+    private static final ResourceLocation EYES_TEX = new ResourceLocation(AnexoHorror.MODID, "textures/entity/other_eyes.png");
     /** Alto del modelo en bloques (el .obj ya se exporta a esta altura). */
     private static final float HEIGHT = 4.0F;
 
@@ -60,29 +59,6 @@ public class OtherRenderer extends EntityRenderer<OtherEntity> {
         float blinkAge = (float) (e.level().getGameTime() - e.getBlinkTick()) + pt;
         float death = e.deathTime > 0 ? Math.min(90.0F, (e.deathTime + pt) * 4.5F) : 0.0F;
         float alive = 1.0F - death / 120.0F;
-
-        // ------------------------------------------------ aura roja (varios tonos, aditiva, brilla mas al cargar)
-        if (ClientConfig.GLOW.get()) {
-            float gs = ClientConfig.GLOW_STRENGTH.get().floatValue() * alive * (windup ? 1.5F : 1.0F);
-            float pulseA = 0.75F + 0.25F * Mth.sin(t * 0.06F + e.getId());
-            float pulseB = 0.70F + 0.30F * Mth.sin(t * 0.17F + 1.7F);
-            if (Math.floorMod(e.tickCount * 3 + e.getId(), 89) < 2) { pulseA *= 0.5F; pulseB *= 0.4F; } // parpadeo
-            ps.pushPose();
-            ps.mulPose(Axis.YP.rotation((float) Mth.atan2(cdx, cdz)));
-            PoseStack.Pose gp = ps.last();
-            VertexConsumer gv = buf.getBuffer(RenderType.eyes(AURA));
-            int full = LightTexture.FULL_BRIGHT;
-            // capa exterior: rojo oscuro de sangre seca -> carmesi
-            quad(gv, gp, 4.8F, 5.4F, -0.7F, -0.9F, Mth.clamp(0.50F * pulseA * gs, 0, 1),
-                    0.50F, 0.00F, 0.04F, 0.95F, 0.12F, 0.10F, full);
-            // capa interior: rojo vivo -> naranja rojizo
-            quad(gv, gp, 3.0F, 4.6F, -0.3F, -0.7F, Mth.clamp(0.55F * pulseB * gs, 0, 1),
-                    0.85F, 0.04F, 0.07F, 1.00F, 0.42F, 0.25F, full);
-            // nucleo bajo, rojo profundo (donde se sienta)
-            quad(gv, gp, 3.6F, 1.8F, -0.2F, -0.6F, Mth.clamp(0.45F * pulseA * gs, 0, 1),
-                    0.70F, 0.00F, 0.03F, 0.90F, 0.08F, 0.08F, full);
-            ps.popPose();
-        }
 
         // ------------------------------------------------ orientacion: el frente del modelo es +X
         float bodyYaw = Mth.rotLerp(pt, e.yBodyRotO, e.yBodyRot) * ((float) Math.PI / 180.0F);
@@ -120,7 +96,7 @@ public class OtherRenderer extends EntityRenderer<OtherEntity> {
         ps.scale(s * side, s * breathe, s * side);
         ps.translate(-m.cx, -m.minY, -m.cz);
 
-        int light = LightTexture.pack(Math.max(LightTexture.block(packedLight), 6), LightTexture.sky(packedLight));
+        int light = packedLight; // el cuerpo recibe solo la luz real del mundo; los ojos usan FULL_BRIGHT.
         int overlay = LivingEntityRenderer.getOverlayCoords(e, 0.0F);     // destello rojo al recibir dano
         // tinte: destello rojizo al aparecer y pulso rojo al cargar
         int gb = 255;
@@ -161,22 +137,31 @@ public class OtherRenderer extends EntityRenderer<OtherEntity> {
                             n02 * nx + n12 * ny + n22 * nz)
                     .endVertex();
         }
+        // Segunda pasada emisiva con la misma malla y UV: el atlas overlay solo contiene los ojos.
+        // RenderType.eyes es parte del renderizador vanilla de Minecraft y no requiere shaders.
+        VertexConsumer eyes = buf.getBuffer(RenderType.eyes(EYES_TEX));
+        int eyeAlpha = Mth.clamp((int) (255.0F * alive * (0.90F + 0.10F * Mth.sin(t * 0.10F))), 0, 255);
+        for (int i = 0; i < idx.length; i++) {
+            int v = idx[i];
+            float x = pos[v * 3];
+            float y = pos[v * 3 + 1];
+            float z = pos[v * 3 + 2];
+            float nx = nrm[v * 3];
+            float ny = nrm[v * 3 + 1];
+            float nz = nrm[v * 3 + 2];
+            eyes.vertex(a00 * x + a10 * y + a20 * z + a30,
+                            a01 * x + a11 * y + a21 * z + a31,
+                            a02 * x + a12 * y + a22 * z + a32)
+                    .color(255, 255, 255, eyeAlpha)
+                    .uv(uv[v * 2], uv[v * 2 + 1])
+                    .overlayCoords(OverlayTexture.NO_OVERLAY)
+                    .uv2(LightTexture.FULL_BRIGHT)
+                    .normal(n00 * nx + n10 * ny + n20 * nz,
+                            n01 * nx + n11 * ny + n21 * nz,
+                            n02 * nx + n12 * ny + n22 * nz)
+                    .endVertex();
+        }
         ps.popPose();
     }
 
-    /** Plano de aura con color distinto abajo y arriba (degradado de rojos). */
-    private static void quad(VertexConsumer vc, PoseStack.Pose pose, float width, float height, float bottom, float z,
-                             float a, float rb, float gb, float bb, float rt, float gt, float bt, int light) {
-        float hw = width * 0.5F;
-        vertex(vc, pose, -hw, bottom, z, 0.0F, 1.0F, rb, gb, bb, a, light);
-        vertex(vc, pose, hw, bottom, z, 1.0F, 1.0F, rb, gb, bb, a, light);
-        vertex(vc, pose, hw, bottom + height, z, 1.0F, 0.0F, rt, gt, bt, a, light);
-        vertex(vc, pose, -hw, bottom + height, z, 0.0F, 0.0F, rt, gt, bt, a, light);
-    }
-
-    private static void vertex(VertexConsumer vc, PoseStack.Pose pose, float x, float y, float z, float u, float v,
-                               float r, float g, float b, float a, int light) {
-        vc.vertex(pose.pose(), x, y, z).color(r, g, b, a).uv(u, v)
-                .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(pose.normal(), 0.0F, 0.0F, 1.0F).endVertex();
-    }
 }

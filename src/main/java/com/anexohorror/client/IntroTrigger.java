@@ -23,6 +23,7 @@ public final class IntroTrigger {
 
     // video de anochecer: lo ordena el servidor; aqui se espera a que no haya otra pantalla abierta
     private static boolean videoQueued;
+    private static boolean creditsPending;
 
     public static void queueVideo() {
         videoQueued = true;
@@ -37,6 +38,7 @@ public final class IntroTrigger {
 
     @SubscribeEvent
     public static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) {
+        creditsPending = true;
         pending = ClientConfig.INTRO_MODE.get() == ClientConfig.IntroMode.NEW_WORLD;
         forced = false;
         wait = 80; // deja que el mundo termine de cargar
@@ -48,6 +50,13 @@ public final class IntroTrigger {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.level == null) {
             // Conserva el aviso recibido durante la carga del cliente.
+            return;
+        }
+
+        // ---- creditos del creador: aparecen en cada entrada a un mundo/servidor
+        if (creditsPending && mc.screen == null && mc.player.isAlive() && !mc.isPaused()) {
+            creditsPending = false;
+            mc.setScreen(new CreditsScreen());
             return;
         }
 
