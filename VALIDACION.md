@@ -56,3 +56,12 @@
 - La comprobación de sintaxis de `javac` no mostró errores de parser; la compilación completa se detiene por la ausencia de los paquetes Minecraft/Forge.
 - Gradle no está instalado en este entorno. La compilación con Gradle/Forge 1.20.1 y una prueba de varias rondas dentro del juego siguen pendientes.
 - El ZIP final se somete a prueba de integridad antes de entregarse.
+
+## 1.10.6 — tanda 01 (01–10)
+
+- Analizados los 43 archivos Java con el parser de javac de JDK 17, sin errores sintácticos. Esta comprobación no resuelve tipos de Minecraft/Forge.
+- Todos los JSON de recursos parseados correctamente y `git diff --check` sin incidencias.
+- Versiones del código, Gradle y nombre del artefacto de CI sincronizadas en 1.10.6.
+- Matriz de diez pruebas funcionales en `MEJORAS.md`; pendiente de ejecución dentro del juego, incluyendo dos jugadores, cambios de dimensión y fin de caza.
+
+Compilación final: **BUILD SUCCESSFUL**, Gradle 8.1.1, JDK 17, Forge 47.2.0. Generado `anexohorror-1.10.6.jar`. Sin tests automatizados en el proyecto (`test NO-SOURCE`); pruebas dentro de Minecraft pendientes.

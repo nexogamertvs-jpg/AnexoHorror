@@ -178,3 +178,19 @@ El sistema es por jugador y usa un orden aleatorio sin repetir eventos comunes h
 - Visor analógico (esquinas, REC, estado del flash) mientras la cámara está en la mano, en primera persona.
 - Archivos nuevos: `almanac/AlmanacEntry`, `almanac/Almanac`, `item/CameraItem`, `client/CameraFlash`, `client/AlmanacScreen`; paquetes reutilizan `ClientEffectPacket` (kinds 8 y 9). Texturas en `textures/item/camera.png` y `textures/gui/almanac/`.
 - Pendiente: compilar con ForgeGradle y probar en el juego.
+
+## Cámara en supervivencia
+
+La cámara se fabrica en una mesa con tres lingotes de hierro (arriba, izquierda y derecha del cristal), un panel de cristal central y una redstone debajo del cristal. Patrón exacto:
+
+```text
+ I
+IGI
+ R
+```
+
+I = hierro, G = panel de cristal, R = redstone. La receta se descubre al recoger redstone. Clic derecho toma la fotografía; agachado + clic derecho abre el almanaque. Las fotografías requieren una línea de visión sin colisiones y el servidor comprueba el enfriamiento de 1,5 segundos.
+
+## 1.10.6 — mejoras 01–10: ritmo y continuidad del acecho
+
+El director reserva los sucesos intensos hasta la primera noche, separa los picos de tensión, da margen tras una caza y espera durante los encuentros activos. Cancela acciones pendientes al morir, cambiar de dimensión o desactivarse; evita repetir inmediatamente el último evento y alarga los silencios cuando el miedo aumenta. `/anexohorror status` muestra los segundos de recuperación. Detalles y pruebas de cada mejora en `MEJORAS.md`.

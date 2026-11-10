@@ -56,7 +56,8 @@ public final class HorrorDirector {
     public static void onWake(PlayerWakeUpEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         ServerLevel l = sp.serverLevel();
-        if (l.dimension() != Level.OVERWORLD) return;
+        if (!HorrorConfig.ENABLED.get() || sp.isSpectator() || !sp.isAlive()
+                || l.dimension() != Level.OVERWORLD) return;
         PlayerState st = stateFor(sp);
         if (sp.getRandom().nextInt(100) < 35) {
             st.schedule(20 + sp.getRandom().nextInt(40),
@@ -73,7 +74,8 @@ public final class HorrorDirector {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         if (!HorrorConfig.BLOCK_SLEEP.get()) return;
         ServerLevel l = sp.serverLevel();
-        if (l.dimension() != Level.OVERWORLD) return;
+        if (!HorrorConfig.ENABLED.get() || sp.isSpectator() || !sp.isAlive()
+                || l.dimension() != Level.OVERWORLD) return;
 
         event.setResult(Player.BedSleepingProblem.OTHER_PROBLEM);
 

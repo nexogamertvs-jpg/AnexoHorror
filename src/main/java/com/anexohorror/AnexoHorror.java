@@ -15,7 +15,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 @Mod(AnexoHorror.MODID)
 public class AnexoHorror {
     public static final String MODID = "anexohorror";
-    public static final String VERSION = "1.10.5";
+    public static final String VERSION = "1.10.6";
 
     public AnexoHorror() {
         IEventBus bus = FMLJavaModLoadingContext.get().getModEventBus();

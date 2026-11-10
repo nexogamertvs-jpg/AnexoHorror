@@ -58,6 +58,7 @@ public class CameraItem extends Item {
             if (sp.isShiftKeyDown()) {
                 ModNetwork.send(sp, ClientEffectPacket.OPEN_ALMANAC, Almanac.getMask(sp), 0, "");
             } else {
+                if (sp.getCooldowns().isOnCooldown(this)) return InteractionResultHolder.consume(stack);
                 takePhoto(sl, sp);
                 sp.getCooldowns().addCooldown(this, COOLDOWN_TICKS);
             }
@@ -147,7 +148,7 @@ public class CameraItem extends Item {
 
     private static boolean visible(ServerLevel level, ServerPlayer sp, Vec3 eye, Vec3 point) {
         BlockHitResult hit = level.clip(new ClipContext(eye, point, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, sp));
-        return hit.getType() == HitResult.Type.MISS || hit.getLocation().distanceToSqr(point) < 0.49D;
+        return hit.getType() == HitResult.Type.MISS;
     }
 
     @Override
