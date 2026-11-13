@@ -107,9 +107,7 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
         vertex(vc, m, n, -hw, fullH, 0.0F, 0.0F, alpha, light);
 
         // Overlay UV sincronizado con la textura: solo brillan los ojos.
-        float eyePulse = 0.88F + 0.12F * Mth.sin(t * 0.11F + entity.getId() * 0.37F);
-        if (Math.floorMod(entity.tickCount * 11 + entity.getId(), 137) < 2) eyePulse *= 0.35F;
-        float eyeAlpha = alpha * eyePulse;
+        float eyeAlpha = alpha * eyeFlicker(t, entity.getId());
         VertexConsumer eyes = buffer.getBuffer(RenderType.eyes(v.eyeTexture));
         float zEye = 0.012F;
         vertexZ(eyes, m, n, -hw, 0.0F, zEye, 0.0F, 1.0F, eyeAlpha, LightTexture.FULL_BRIGHT);
@@ -179,10 +177,8 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
         Matrix4f m = pose.pose();
         Matrix3f n = pose.normal();
         drawRibbon(buffer.getBuffer(RenderType.entityTranslucent(v.texture)), m, n, width, uS, flip, alpha, light, 0.0F);
-        float eyePulse = 0.88F + 0.12F * Mth.sin(t * 0.11F + id * 0.37F);
-        if (Math.floorMod(entity.tickCount * 11 + id, 137) < 2) eyePulse *= 0.35F;
         drawRibbon(buffer.getBuffer(RenderType.eyes(v.eyeTexture)), m, n, width, uS, flip,
-                alpha * eyePulse, LightTexture.FULL_BRIGHT, 0.012F);
+                alpha * eyeFlicker(t, id), LightTexture.FULL_BRIGHT, 0.012F);
         poseStack.popPose();
 
         // ---------- manos (misma textura): agarre del borde y brazo estirado
@@ -227,6 +223,19 @@ public class HorrorRenderer extends EntityRenderer<HorrorEntity> {
                     SX[jS], SY[jS], width, hover, hs, t, light);
             poseStack.popPose();
         }
+    }
+
+    /**
+     * Brillo de los ojos con aire de cinta VHS: respiracion lenta, un temblor fino, rafagas de
+     * "tracking" (4 ticks de parpadeo rapido cada ~6 s) y caidas de senal casi apagadas, raras.
+     * Devuelve 0..1 (el alfa se escribe en un byte, no puede pasar de 1).
+     */
+    public static float eyeFlicker(float t, int id) {
+        float v = 0.84F + 0.08F * Mth.sin(t * 0.11F + id * 0.37F) + 0.04F * Mth.sin(t * 0.53F + id);
+        int tick = (int) t;
+        if (Math.floorMod(tick + id * 13, 131) < 4) v *= (tick % 2 == 0) ? 0.25F : 1.2F;
+        if (Math.floorMod(tick * 3 + id, 211) < 2) v *= 0.1F;
+        return Mth.clamp(v, 0.0F, 1.0F);
     }
 
     /** Cambia el ladeo de la cabeza de golpe cada 16 ticks (el cambio dura 3 ticks). */

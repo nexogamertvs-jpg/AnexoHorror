@@ -18,7 +18,7 @@ import java.util.WeakHashMap;
 
 /**
  * Cronometro del anochecer: el servidor detecta el cruce del tick 13000 del ciclo
- * de 24000 y manda el evento VHS a los clientes. El cliente decide segun IntroMode.
+ * de 24000 y manda el evento VHS a los clientes. Solo aparece una vez en la primera noche.
  */
 @Mod.EventBusSubscriber(modid = AnexoHorror.MODID)
 public final class NightDirector {
@@ -60,21 +60,27 @@ public final class NightDirector {
         if (sl.dimension() != Level.OVERWORLD) return;
         long tick = sl.getDayTime() % 24000L;
         if (tick >= 13000L && tick < 23000L) {
-            // Cuenta la noche para quien entra tarde y no pierde el VHS.
+            // Cuenta la noche para quien entra tarde y no pierde el VHS en la primera noche.
             HorrorDirector.stateFor(player).onNightfall(player, sl);
-            sendNightVideoOnce(player, sl.getDayTime() / 24000L);
+            long day = sl.getDayTime() / 24000L;
+            if (day == 0L && PlayerState.nights(player) <= 1) {
+                sendNightVideoOnce(player, day);
+            }
         }
     }
 
     /** Tambien sirve para /time set: cualquier salto que cruce 13000 cuenta como anochecer. */
     public static void nightfall(ServerLevel sl) {
+        long dayIndex = sl.getDayTime() / 24000L;
         for (ServerPlayer p : sl.players()) {
             if (!p.isAlive() || p.isSpectator()) continue;
             HorrorDirector.stateFor(p).onNightfall(p, sl); // cuenta la noche
-            // VIDEO respeta IntroMode.NIGHTFALL en el cliente y aparece una sola vez por noche.
-            sendNightVideoOnce(p, sl.getDayTime() / 24000L);
+            // El VHS aparece una sola vez en todo el mundo y exclusivamente en la primera noche.
+            if (dayIndex == 0L && PlayerState.nights(p) <= 1) {
+                sendNightVideoOnce(p, dayIndex);
+            }
             if (PlayerState.nights(p) > 1) {
-                long day = sl.getDayTime() / 24000L + 1L;
+                long day = dayIndex + 1L;
                 ModNetwork.send(p, ClientEffectPacket.NIGHT_TITLE, (int) Math.min(day, 100000L), 0, "");
             }
         }

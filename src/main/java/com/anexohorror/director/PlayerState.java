@@ -46,11 +46,6 @@ public final class PlayerState {
     final ArrayDeque<EventType> recent = new ArrayDeque<>();
     final ArrayDeque<EventType> eventDeck = new ArrayDeque<>();
     final ArrayDeque<Integer> recentSounds = new ArrayDeque<>();
-    private net.minecraft.resources.ResourceKey<Level> previousDimension;
-    private boolean suspended;
-    private long recoveryUntil;
-    private long lastStrongEvent = -1000000L;
-    private EventType lastEvent;
     private final List<Scheduled> scheduled = new ArrayList<>();
 
     PlayerState(ServerPlayer p) {
@@ -64,31 +59,23 @@ public final class PlayerState {
 
     void tick(ServerPlayer p) {
         ServerLevel l = p.serverLevel();
-        now = l.getGameTime();
-        boolean changed = p != player || (previousDimension != null && previousDimension != l.dimension());
-        player = p;
-        previousDimension = l.dimension();
-        boolean eligible = HorrorConfig.ENABLED.get() && !p.isSpectator()
-                && p.isAlive() && l.dimension() == Level.OVERWORLD;
-        if (changed || !eligible) {
+        if (p != player) { // reaparicion / cambio de instancia
+            player = p;
             scheduled.clear();
-            silenceUntil = 0;
-            idleTicks = 0;
-            lastPos = p.position();
-            cooldown = Math.max(cooldown, 600);
         }
-        if (!eligible) { suspended = true; return; }
-        if (suspended) {
-            suspended = false;
-            cooldown = Math.max(cooldown, 600);
-        }
+        now = l.getGameTime();
 
         if (!scheduled.isEmpty()) {
             List<Scheduled> due = new ArrayList<>();
-            for (Scheduled task : scheduled) if (now >= task.at()) due.add(task);
-            scheduled.removeAll(due);
-            for (Scheduled task : due) task.action().run(p, l);
+            for (Scheduled s : scheduled) if (now >= s.at()) due.add(s);
+            if (!due.isEmpty()) {
+                scheduled.removeAll(due);
+                for (Scheduled s : due) s.action().run(p, l);
+            }
         }
+
+        if (!HorrorConfig.ENABLED.get()) return;
+        if (p.isSpectator() || !p.isAlive() || l.dimension() != Level.OVERWORLD) return;
 
         if (now % 200L == 0L) StoryChests.tick(p, l);
         fear = Math.max(0.0D, fear - 0.00015D);
@@ -104,10 +91,7 @@ public final class PlayerState {
             p.connection.send(new ClientboundStopSoundPacket(null, SoundSource.AMBIENT));
         }
 
-        // Deja respirar al jugador antes de iniciar otro encuentro aleatorio.
-        if (now < recoveryUntil || p.isSleeping()) return;
         if (--cooldown > 0) return;
-        if (hasActiveThreat(p, l)) { cooldown = 100; return; }
         triggerRandom(p, l);
         // Incluso si un evento no encuentra su escenario, la baraja conserva ese evento
         // para volver a intentarlo en el siguiente ciclo, sin hacer intentos cada 6 segundos.
@@ -150,10 +134,8 @@ public final class PlayerState {
         double nightBase = 850 + r.nextInt(450); // 42-65 s de noche
         double base = HorrorUtil.lerp(dayBase, nightBase, night);
         double ticks = base / Math.max(0.1D, intensity);
-        // El miedo elevado prolonga la incertidumbre en lugar de acumular sustos.
-        ticks *= 1.0D + fear * 0.35D;
         int roll = r.nextInt(100);
-        if (roll < 5 && fear < 0.5D && nights(p) > 1) ticks = Math.max(500, ticks * 0.65D); // pausa corta excepcional, no una rafaga constante
+        if (roll < 5) ticks = 320 + r.nextInt(180); // pausa corta excepcional, no una rafaga constante
         else if (roll < 18) ticks *= 1.35D;          // silencios largos para conservar tension
         if (idleTicks > 600) ticks *= 0.90D;
         return (int) Mth.clamp(ticks, 300.0D, 5200.0D); // 15 s a 4 min 20 s
@@ -193,10 +175,6 @@ public final class PlayerState {
 
     private boolean temporarilyLocked(EventType type, ServerPlayer p, ServerLevel l) {
         long gameTime = l.getGameTime();
-        if (isStrong(type) && (nights(p) == 0 || gameTime - lastStrongEvent < 1800L)) return true;
-        if (type == EventType.HUNT || type == EventType.OTHER) {
-            if (hasActiveThreat(p, l)) return true;
-        }
         if (type == EventType.SILENCE && !HorrorConfig.SILENCE_EVENTS.get()) return true;
         if (type == EventType.HUNT) {
             return !HorrorConfig.HUNT_ENABLED.get()
@@ -221,16 +199,11 @@ public final class PlayerState {
         int attempts = eventDeck.size();
         for (int i = 0; i < attempts; i++) {
             EventType type = eventDeck.removeFirst();
-            if (type == lastEvent || temporarilyLocked(type, p, l)) {
+            if (temporarilyLocked(type, p, l)) {
                 eventDeck.addLast(type);
                 continue;
             }
             if (HorrorEvents.run(type, p, l, this)) {
-                lastEvent = type;
-                if (isStrong(type)) {
-                    lastStrongEvent = now;
-                    recoveryUntil = now + 600L;
-                }
                 recent.addLast(type);
                 while (recent.size() > 6) recent.removeFirst();
                 return true;
@@ -243,20 +216,6 @@ public final class PlayerState {
         refillRoutineEvents(p);
         return false;
     }
-
-    private static boolean hasActiveThreat(ServerPlayer p, ServerLevel l) {
-        return !l.getEntitiesOfClass(HorrorEntity.class, p.getBoundingBox().inflate(160.0D),
-                e -> e.isAlive() && p.getUUID().equals(e.getOwnerId()) && e.getMode() == HorrorMode.HUNT).isEmpty()
-                || !l.getEntitiesOfClass(com.anexohorror.entity.OtherEntity.class,
-                        p.getBoundingBox().inflate(160.0D), e -> e.isAlive()).isEmpty();
-    }
-
-    private static boolean isStrong(EventType type) {
-        return type == EventType.HUNT || type == EventType.OTHER || type == EventType.BLACKOUT
-                || type == EventType.STATIC_BURST || type == EventType.TAPE_CORRUPTION;
-    }
-
-    public long recoverySeconds() { return Math.max(0L, recoveryUntil - now + 19L) / 20L; }
 
     public String nextEventName() {
         return eventDeck.isEmpty() ? "baraja nueva" : eventDeck.peekFirst().name().toLowerCase();
@@ -287,10 +246,6 @@ public final class PlayerState {
 
     /** Adaptacion: el director aprende como reacciona este jugador. */
     void onVanish(HorrorEntity e, VanishReason r) {
-        if (e.getMode() == HorrorMode.HUNT) {
-            recoveryUntil = Math.max(recoveryUntil, now + 1200L);
-            fear = Math.min(1.0D, fear + 0.15D);
-        }
         switch (r) {
             case LOOKED_AWAY -> { jumpy = HorrorUtil.lerp(jumpy, 1.0D, 0.2D); bold = HorrorUtil.lerp(bold, 0.0D, 0.1D); fear = Math.min(1.0D, fear + 0.06D); }
             case TOO_CLOSE -> { bold = HorrorUtil.lerp(bold, 1.0D, 0.3D); jumpy = HorrorUtil.lerp(jumpy, 0.0D, 0.1D); }

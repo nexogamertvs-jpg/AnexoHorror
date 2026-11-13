@@ -140,7 +140,7 @@ public class OtherRenderer extends EntityRenderer<OtherEntity> {
         // Segunda pasada emisiva con la misma malla y UV: el atlas overlay solo contiene los ojos.
         // RenderType.eyes es parte del renderizador vanilla de Minecraft y no requiere shaders.
         VertexConsumer eyes = buf.getBuffer(RenderType.eyes(EYES_TEX));
-        int eyeAlpha = Mth.clamp((int) (255.0F * alive * (0.90F + 0.10F * Mth.sin(t * 0.10F))), 0, 255);
+        int eyeAlpha = Mth.clamp((int) (255.0F * alive * HorrorRenderer.eyeFlicker(t, 7)), 0, 255);
         for (int i = 0; i < idx.length; i++) {
             int v = idx[i];
             float x = pos[v * 3];
