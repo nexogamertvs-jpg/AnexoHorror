@@ -179,6 +179,7 @@ El sistema es por jugador y usa un orden aleatorio sin repetir eventos comunes h
 - Archivos nuevos: `almanac/AlmanacEntry`, `almanac/Almanac`, `item/CameraItem`, `client/CameraFlash`, `client/AlmanacScreen`; paquetes reutilizan `ClientEffectPacket` (kinds 8 y 9). Texturas en `textures/item/camera.png` y `textures/gui/almanac/`.
 - Pendiente: compilar con ForgeGradle y probar en el juego.
 
+<<<<<<< HEAD
 ## Asomos reales (cobertura, cuerpo inclinado, puerta y mano)
 
 - Los asomos ya no son una cabeza que sube o baja: la figura entera se esconde tras un bloque real (tronco, esquina, pilar, marco de puerta o ventana) y se asoma inclinando el cuerpo hacia fuera, con la cabeza ladeada a tirones y una mano agarrada al borde. Se dibuja como una cinta deformable (`PeekPose`, `HorrorRenderer`), sin cambiar las texturas.
@@ -187,3 +188,20 @@ El sistema es por jugador y usa un orden aleatorio sin repetir eventos comunes h
 - Ventana: sale desde detrás de la pared junto al marco y deja medio rostro a la vista.
 - Nuevos archivos: `entity/PeekPose`, `director/CoverSpot`, `director/CoverFinder`. La cámara fotográfica solo registra un asomo mientras la cabeza está realmente fuera.
 - Pendiente: compilar con ForgeGradle y probar en el juego (ajustar `PeekPose.LEAN_DEG/TILT_DEG` si se quiere más o menos inclinación).
+=======
+## Cámara en supervivencia
+
+La cámara se fabrica en una mesa con tres lingotes de hierro (arriba, izquierda y derecha del cristal), un panel de cristal central y una redstone debajo del cristal. Patrón exacto:
+
+```text
+ I
+IGI
+ R
+```
+
+I = hierro, G = panel de cristal, R = redstone. La receta se descubre al recoger redstone. Clic derecho toma la fotografía; agachado + clic derecho abre el almanaque. Las fotografías requieren una línea de visión sin colisiones y el servidor comprueba el enfriamiento de 1,5 segundos.
+
+## 1.10.6 — mejoras 01–10: ritmo y continuidad del acecho
+
+El director reserva los sucesos intensos hasta la primera noche, separa los picos de tensión, da margen tras una caza y espera durante los encuentros activos. Cancela acciones pendientes al morir, cambiar de dimensión o desactivarse; evita repetir inmediatamente el último evento y alarga los silencios cuando el miedo aumenta. `/anexohorror status` muestra los segundos de recuperación. Detalles y pruebas de cada mejora en `MEJORAS.md`.
+>>>>>>> 59fb249ccc10f0643bfa6dc88d291a6571df9a56
