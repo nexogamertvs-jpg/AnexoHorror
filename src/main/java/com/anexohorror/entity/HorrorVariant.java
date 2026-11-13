@@ -37,6 +37,10 @@ public enum HorrorVariant {
     }
 
     /** Alto/ancho historicos del recorte; no se usan en el render de la version actual. */
+    public float headCenterU() { return (headU0 + headU1) * 0.5F; }
+    public float headCenterV() { return (headV0 + headV1) * 0.5F; }
+    /** Altura del centro de la cabeza sobre el origen de la entidad (figura completa, de pie). */
+    public float headCenterY(float scale) { return hover * scale + height * scale * (1.0F - headCenterV()); }
     public float headHeight(float scale) { return height * scale * (headV1 - headV0); }
     public float headWidth(float scale) { return height * scale * aspect * (headU1 - headU0); }
 

@@ -5,6 +5,7 @@ import com.anexohorror.entity.HorrorEntity;
 import com.anexohorror.entity.HorrorMode;
 import com.anexohorror.entity.HorrorVariant;
 import com.anexohorror.entity.OtherEntity;
+import com.anexohorror.entity.PeekPose;
 import com.anexohorror.net.ClientEffectPacket;
 import com.anexohorror.net.ModNetwork;
 import com.anexohorror.registry.ModEntities;
@@ -272,8 +273,8 @@ public final class HorrorEvents {
         double vanishDist;
         switch (mode) {
             case PERIPHERAL -> { maxLife = 50 + r.nextInt(70); stareLimit = 0; grace = 0; glimpse = 2 + r.nextInt(4); vanishDist = 3.0D; }
-            case PEEK -> { maxLife = 170 + (night ? 300 + r.nextInt(500) : 200 + r.nextInt(300));
-                stareLimit = night ? 120 + r.nextInt(260) : 60 + r.nextInt(120); grace = night ? 18 + r.nextInt(16) : 12 + r.nextInt(12);
+            case PEEK -> { maxLife = 420 + (night ? 300 + r.nextInt(600) : 150 + r.nextInt(250));
+                stareLimit = night ? 70 + r.nextInt(110) : 50 + r.nextInt(80); grace = night ? 24 + r.nextInt(16) : 16 + r.nextInt(12);
                 glimpse = 0; vanishDist = Math.min(4.0D, dist * 0.5D); }
             case LOW -> { maxLife = 260 + r.nextInt(300); stareLimit = (night ? 120 : 80) + r.nextInt(160);
                 grace = 5 + r.nextInt(6); glimpse = 0; vanishDist = Math.min(3.0D, dist * 0.5D); }
@@ -377,42 +378,6 @@ public final class HorrorEvents {
     }
 
     /** Busca un punto parcialmente tapado por esquinas, marcos, bloques... (asomandose). */
-    private static Vec3 findPeek(ServerPlayer p, ServerLevel l, HorrorVariant v, double minD, double maxD,
-                                 int maxLight, BlockPos near, double nearRadius) {
-        RandomSource r = p.getRandom();
-        Vec3 eye = p.getEyePosition();
-        double[] dm = peekDims(v);
-        double[][] offs = {{0, 0}, {0.5, 0}, {-0.5, 0}, {0, 0.5}, {0, -0.5}};
-        for (int i = 0; i < 140; i++) {
-            double x, z;
-            int baseY;
-            if (near != null) {
-                x = near.getX() + 0.5D + (r.nextDouble() * 2.0D - 1.0D) * nearRadius;
-                z = near.getZ() + 0.5D + (r.nextDouble() * 2.0D - 1.0D) * nearRadius;
-                baseY = near.getY();
-            } else {
-                double ang = r.nextDouble() * Math.PI * 2.0D;
-                double d = minD + r.nextDouble() * (maxD - minD);
-                x = p.getX() + Math.cos(ang) * d;
-                z = p.getZ() + Math.sin(ang) * d;
-                baseY = p.getBlockY();
-            }
-            Optional<BlockPos> g = HorrorUtil.ground(l, Mth.floor(x), Mth.floor(z), baseY, 3, 6);
-            if (g.isEmpty()) continue;
-            BlockPos gp = g.get();
-            if (l.getMaxLocalRawBrightness(gp) > maxLight) continue;
-            for (double[] o : offs) {
-                Vec3 feet = new Vec3(gp.getX() + 0.5D + o[0], gp.getY(), gp.getZ() + 0.5D + o[1]);
-                double hd = Math.sqrt((feet.x - p.getX()) * (feet.x - p.getX()) + (feet.z - p.getZ()) * (feet.z - p.getZ()));
-                if (hd < 3.0D) continue;
-                if (cosToEye(p, feet, dm[0] + dm[1] * 0.6D) < 0.15D) continue; // delante del jugador
-                int vis = HorrorUtil.visibleSamples(l, eye, p, feet, dm[0], dm[1], dm[2]);
-                if (vis >= 1 && vis <= 3) return feet;
-            }
-        }
-        return null;
-    }
-
     private static BlockPos findBlock(ServerPlayer p, ServerLevel l, BlockPos c, int rad, int vr,
                                       Predicate<BlockState> f, double minDist) {
         RandomSource r = p.getRandom();
@@ -473,11 +438,36 @@ public final class HorrorEvents {
         HorrorVariant v = pick(p.getRandom(), W_PEEK, st, night);
         double minD = night ? Math.max(4.5D, minDist(st, true) * 0.42D) : 4.0D;
         double maxD = night ? 15.0D : 11.0D;
-        Vec3 pos = findAnyBlockPeek(p, l, v, minD, maxD);
-        if (pos == null) pos = findPeek(p, l, v, minD, maxD, 15, null, 0.0D);
-        if (pos == null && HorrorUtil.forceDay) pos = forcedVisiblePosition(p, l, v);
-        if (pos == null) return false;
-        return spawnPeek(p, l, st, v, pos) != null;
+        CoverSpot spot = findSpot(p, l, v, minD, maxD);
+        if (spot == null && HorrorUtil.forceDay) spot = openSpot(p, l, v);
+        if (spot == null) return false;
+        return spawnCoverPeek(p, l, st, v, spot) != null;
+    }
+
+    // ------------------------------------------------------------------ asomos con cobertura real
+
+    private static CoverSpot findSpot(ServerPlayer p, ServerLevel l, HorrorVariant v, double minD, double maxD) {
+        return CoverFinder.find(p, l, v, 1.0F, minD, maxD, 15, 160);
+    }
+
+    /** Sin cobertura (solo comandos de prueba): aparece a la vista y se inclina. */
+    private static CoverSpot openSpot(ServerPlayer p, ServerLevel l, HorrorVariant v) {
+        Vec3 pos = forcedVisiblePosition(p, l, v);
+        if (pos == null) return null;
+        Vec3 d = new Vec3(p.getX() - pos.x, 0.0D, p.getZ() - pos.z);
+        if (d.lengthSqr() < 1.0E-4D) d = new Vec3(0.0D, 0.0D, 1.0D);
+        d = d.normalize();
+        return CoverSpot.open(pos, new Vec3(-d.z, 0.0D, d.x));
+    }
+
+    /** Crea la presencia escondida tras su cobertura; ella sola se asoma, se esconde y se recoloca. */
+    static HorrorEntity spawnCoverPeek(ServerPlayer p, ServerLevel l, PlayerState st, HorrorVariant v, CoverSpot spot) {
+        RandomSource r = p.getRandom();
+        HorrorEntity e = spawn(p, l, st, v, HorrorMode.PEEK, spot.shown, 0, spot.scale);
+        if (e == null) return null;
+        int cycles = (st.isNight(l) ? r.nextInt(3) : r.nextInt(2)) + (v == HorrorVariant.STALKER ? 2 : 0);
+        e.setPeekCover(spot.lean, spot.hide, spot.grip, 0.75F + r.nextFloat() * 0.45F, spot.gaze, cycles);
+        return e;
     }
 
     private static boolean canSpawnPeek(ServerPlayer p, ServerLevel l, boolean night) {
@@ -551,26 +541,64 @@ public final class HorrorEvents {
         if (!allowDayTest && !canSpawnMore(p, l, st.isNight(l))) return false;
         HorrorUtil.sound(p, ModSounds.CREAK.get(), SoundSource.BLOCKS,
                 Vec3.atCenterOf(door), 1.0F, 0.68F + p.getRandom().nextFloat() * 0.12F);
-        Vec3 pos = findPeek(p, l, variant, 0.0D, 0.0D, 15, door, 2.4D);
-        if (pos == null && forced) pos = forcedPositionBeside(p, l, door);
-        if (pos == null && forced) pos = forcedVisiblePosition(p, l, variant);
-        if (pos == null) return false;
-        HorrorEntity entity = spawnPeek(p, l, st, variant, pos);
+        CoverSpot spot = doorSpot(p, l, variant, door);
+        if (spot == null && forced) spot = openSpot(p, l, variant);
+        if (spot == null) return false;
+        HorrorEntity entity = spawnCoverPeek(p, l, st, variant, spot);
         if (entity == null) return false;
 
         // El comando garantiza tambien el brazo; en el juego normal sigue siendo una variante rara.
+        // El brazo sale solo cuando la figura ya esta del todo asomada en el hueco de la puerta.
         if (forced || p.getRandom().nextInt(100) < 58) {
-            int handDelay = entity.getRevealTicks() + (forced ? 12 : 18);
-            st.schedule(handDelay, (pl, lv) -> {
-                if (!entity.isRemoved() && pl.isAlive()
-                        && pl.position().distanceTo(entity.position()) <= 7.0D) {
-                    entity.beginHandAttack(pl, forced ? 70 : 92);
-                    HorrorUtil.sound(pl, ModSounds.DISTANT_SOUND.get(), SoundSource.HOSTILE,
-                            entity.position(), 0.95F, 0.82F + pl.getRandom().nextFloat() * 0.18F);
-                }
-            });
+            entity.queueHandAttack(forced ? 26 : 40, forced ? 70 : 92);
         }
         return true;
+    }
+
+    /** Escala con la que la cabeza queda a la altura de un hueco de puerta de dos bloques. */
+    private static float doorScale(HorrorVariant v) {
+        return Mth.clamp(1.66F / v.headCenterY(1.0F), 0.5F, 1.0F);
+    }
+
+    /**
+     * La presencia esta de pie en el hueco de la puerta, del lado contrario al jugador, y sale desde
+     * detras del marco (dentro de la pared) hasta quedar enmarcada, con la cabeza ladeada.
+     */
+    private static CoverSpot doorSpot(ServerPlayer p, ServerLevel l, HorrorVariant v, BlockPos door) {
+        BlockState ds = l.getBlockState(door);
+        if (!(ds.getBlock() instanceof DoorBlock) || ds.getValue(DoorBlock.HALF) != DoubleBlockHalf.LOWER) return null;
+        Direction facing = ds.getValue(DoorBlock.FACING);
+        Vec3 axis = new Vec3(facing.getStepX(), 0.0D, facing.getStepZ());
+        Vec3 center = new Vec3(door.getX() + 0.5D, door.getY(), door.getZ() + 0.5D);
+        double side = Math.signum(axis.dot(new Vec3(p.getX() - center.x, 0.0D, p.getZ() - center.z)));
+        if (side == 0.0D) side = 1.0D;
+        RandomSource r = p.getRandom();
+        float scale = doorScale(v);
+        double h = v.height * scale;
+        double w = h * v.aspect;
+        double headHalf = Math.max(0.12D, v.headWidth(scale) * 0.3D);
+        float[] off = PeekPose.headOffset(v, scale, PeekPose.leanRad(1.0F, 1.0F), PeekPose.tiltRad(1.0F, 1.0F, 1.0F));
+        Vec3 eye = p.getEyePosition();
+        Vec3 base = center.add(axis.scale(-side * 0.28D));
+        Vec3 t = new Vec3(-axis.z, 0.0D, axis.x);
+        boolean first = r.nextBoolean();
+        for (int i = 0; i < 2; i++) {
+            double sideSign = (i == 0) == first ? 1.0D : -1.0D;
+            double hide = 0.95D + r.nextDouble() * 0.25D;
+            Vec3 lean = t.scale(-sideSign);
+            Vec3 hidden = base.add(t.scale(sideSign * hide));
+            if (HorrorUtil.visibleSamples(l, eye, p, hidden, 0.0D, h, w) > 1) continue;
+            Vec3 headShown = base.add(lean.scale(off[0])).add(0.0D, off[1], 0.0D);
+            if (HorrorUtil.headSamples(l, eye, p, headShown, headHalf) < 1) continue;
+            double gy = Math.max(base.y + 0.6D, base.y + off[1] - 0.55D * scale);
+            Vec3 grip = new Vec3(center.x + axis.x * side * 0.46D + t.x * sideSign * 0.5D, gy,
+                    center.z + axis.z * side * 0.46D + t.z * sideSign * 0.5D);
+            return new CoverSpot(base, lean, hide, grip, scale, true);
+        }
+        // Sin pared a los lados: aparece directamente en el hueco.
+        Vec3 head = base.add(0.0D, v.headCenterY(scale), 0.0D);
+        if (HorrorUtil.headSamples(l, eye, p, head, headHalf) < 1) return null;
+        return new CoverSpot(base, t, 0.0D, null, scale, true);
     }
 
     private static BlockPos findNearestDoor(ServerPlayer p, ServerLevel l, int radius, int vertical, double minDist) {
@@ -625,28 +653,21 @@ public final class HorrorEvents {
 
     private static boolean forcedCornerPeek(ServerPlayer p, ServerLevel l, PlayerState st) {
         HorrorVariant variant = pick(p.getRandom(), W_DOOR, st, st.isNight(l));
-        Vec3 pos = findPeek(p, l, variant, 5.0D, 7.0D, 15, null, 0.0D);
-        if (pos == null) pos = forcedVisiblePosition(p, l, variant);
-        if (pos == null) return false;
-        HorrorUtil.sound(p, ModSounds.KNOCK.get(), SoundSource.HOSTILE, pos, 1.1F, 0.72F);
-        HorrorEntity e = spawnPeek(p, l, st, variant, pos);
+        CoverSpot spot = findSpot(p, l, variant, 5.0D, 9.0D);
+        if (spot == null) spot = openSpot(p, l, variant);
+        if (spot == null) return false;
+        HorrorUtil.sound(p, ModSounds.KNOCK.get(), SoundSource.HOSTILE, spot.shown, 1.1F, 0.72F);
+        HorrorEntity e = spawnCoverPeek(p, l, st, variant, spot);
         if (e == null) return false;
-        st.schedule(e.getRevealTicks() + 12, (pl, lv) -> {
-            if (!e.isRemoved() && pl.isAlive() && pl.position().distanceTo(e.position()) <= 7.0D) {
-                e.beginHandAttack(pl, 70);
-                HorrorUtil.sound(pl, ModSounds.DISTANT_SOUND.get(), SoundSource.HOSTILE,
-                        e.position(), 0.95F, 0.9F);
-            }
-        });
+        e.queueHandAttack(26, 70);
         return true;
     }
 
     private static boolean forcedHeadPeek(ServerPlayer p, ServerLevel l, PlayerState st) {
         HorrorVariant variant = pick(p.getRandom(), W_PEEK, st, st.isNight(l));
-        Vec3 pos = findAnyBlockPeek(p, l, variant, 3.0D, 13.0D);
-        if (pos == null) pos = findPeek(p, l, variant, 3.0D, 13.0D, 15, null, 0.0D);
-        if (pos == null) pos = forcedVisiblePosition(p, l, variant);
-        return pos != null && spawnPeek(p, l, st, variant, pos) != null;
+        CoverSpot spot = findSpot(p, l, variant, 3.0D, 13.0D);
+        if (spot == null) spot = openSpot(p, l, variant);
+        return spot != null && spawnCoverPeek(p, l, st, variant, spot) != null;
     }
 
     private static Vec3 forcedVisiblePosition(ServerPlayer p, ServerLevel l, HorrorVariant v) {
@@ -700,10 +721,9 @@ public final class HorrorEvents {
             spawn(p, l, st, v, HorrorMode.STARE, pos, 0, 1.0F);
             return true;
         }
-        pos = findPeek(p, l, v, 6.0D, 18.0D, 5, null, 0.0D);
-        if (pos == null) return false;
-        spawnPeek(p, l, st, v, pos);
-        return true;
+        CoverSpot spot = CoverFinder.find(p, l, v, 1.0F, 6.0D, 18.0D, 5, 160);
+        if (spot == null) return false;
+        return spawnCoverPeek(p, l, st, v, spot) != null;
     }
 
     /** Escalada nocturna: tras apartar la vista, reaparece un poco mas cerca (nunca bajo 8.5 bloques, nunca persigue). */
@@ -851,98 +871,50 @@ public final class HorrorEvents {
     // ------------------------------------------------------------------ asomos de cabeza desde los bordes y bloques
 
     /** [desplazamiento vertical, alto, ancho] de la cabeza visible, no del cuerpo oculto. */
-    private static double[] peekDims(HorrorVariant v) {
-        double headH = v.height * (v.headV1 - v.headV0);
-        double headW = v.height * v.aspect * (v.headU1 - v.headU0);
-        return new double[]{v.hover + HorrorEntity.HEAD_CENTER - headH * 0.5D, headH, headW};
-    }
-
     /**
-     * Busca bloques solidos cercanos en cualquier direccion y coloca la cabeza junto a uno
-     * de sus cantos. La comprobacion de visibilidad exige que el bloque tape parte del rostro,
-     * pero que al menos un fragmento pueda verse desde la posicion del jugador.
+     * Ventana: la presencia esta fuera, pegada al cristal, y sale desde detras de la pared junto al
+     * marco hasta que parte de su rostro queda enmarcada en la ventana, con la cabeza ladeada.
      */
-    private static Vec3 findAnyBlockPeek(ServerPlayer p, ServerLevel l, HorrorVariant v,
-                                         double minD, double maxD) {
+    private static CoverSpot windowSpot(ServerPlayer p, ServerLevel l, HorrorVariant v, BlockPos glass) {
         RandomSource r = p.getRandom();
-        double[] dm = peekDims(v);
+        Vec3 pc = p.position();
         Vec3 eye = p.getEyePosition();
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        for (int i = 0; i < 420; i++) {
-            double angle = r.nextDouble() * Math.PI * 2.0D;
-            double distance = minD + r.nextDouble() * Math.max(0.1D, maxD - minD);
-            int bx = Mth.floor(p.getX() + Math.cos(angle) * distance);
-            int bz = Mth.floor(p.getZ() + Math.sin(angle) * distance);
-            int by = p.getBlockY() + r.nextInt(11) - 5;
-            mutable.set(bx, by, bz);
-            if (!l.hasChunkAt(mutable)) continue;
-            BlockState anchorState = l.getBlockState(mutable);
-            if (anchorState.isAir() || !anchorState.getFluidState().isEmpty()
-                    || anchorState.getCollisionShape(l, mutable).isEmpty()) continue;
-
-            Vec3 anchor = Vec3.atCenterOf(mutable);
-            Vec3 toPlayer = new Vec3(p.getX() - anchor.x, 0.0D, p.getZ() - anchor.z);
-            double horizontalDistance = toPlayer.length();
-            if (horizontalDistance < minD || horizontalDistance > maxD || horizontalDistance < 0.001D) continue;
-            Vec3 normal = toPlayer.scale(1.0D / horizontalDistance);
-            Vec3 tangent = new Vec3(-normal.z, 0.0D, normal.x);
-            double side = r.nextBoolean() ? 1.0D : -1.0D;
-
-            // Fuera de la cara del bloque y desplazada al canto izquierdo/derecho.
-            // El nivel Y cambia para permitir apariciones a ras de suelo, bajo salientes
-            // o cerca de la altura de los ojos.
-            Vec3 headCenter = anchor.add(normal.scale(0.54D))
-                    .add(tangent.scale(side * (0.42D + r.nextDouble() * 0.18D)))
-                    .add(0.0D, (r.nextDouble() - 0.5D) * 0.58D, 0.0D);
-            Vec3 feet = new Vec3(headCenter.x,
-                    headCenter.y - v.hover - HorrorEntity.HEAD_CENTER, headCenter.z);
-            double dot = cosToEye(p, feet, dm[0] + dm[1] * 0.55D);
-            if (dot < -0.18D) continue;
-            double d2 = feet.distanceToSqr(p.position());
-            if (d2 < minD * minD || d2 > (maxD + 1.5D) * (maxD + 1.5D)) continue;
-
-            BlockPos headCell = BlockPos.containing(headCenter);
-            if (!l.hasChunkAt(headCell)) continue;
-            // No poner el centro de la cabeza dentro de otro bloque; el ancla debe quedar
-            // justo detras del borde que tapa una parte de la textura.
-            if (!l.getBlockState(headCell).getCollisionShape(l, headCell).isEmpty()) continue;
-            int visible = HorrorUtil.visibleSamples(l, eye, p, feet, dm[0], dm[1], dm[2]);
-            if (visible >= 1 && visible <= 5) return feet;
+        float scale = 1.0F;
+        double h = v.height * scale;
+        double w = h * v.aspect;
+        double headHalf = Math.max(0.12D, v.headWidth(scale) * 0.3D);
+        float[] off = PeekPose.headOffset(v, scale, PeekPose.leanRad(1.0F, 1.0F), PeekPose.tiltRad(1.0F, 1.0F, 1.0F));
+        Vec3 gc = Vec3.atCenterOf(glass);
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockPos out = glass.relative(d);
+            BlockPos in = glass.relative(d.getOpposite());
+            if (!l.getBlockState(out).getCollisionShape(l, out).isEmpty()) continue;
+            if (!l.getBlockState(in).getCollisionShape(l, in).isEmpty()) continue;
+            if (Vec3.atCenterOf(in).distanceToSqr(pc) > Vec3.atCenterOf(out).distanceToSqr(pc)) continue; // el jugador esta dentro
+            Vec3 outward = new Vec3(d.getStepX(), 0.0D, d.getStepZ());
+            Vec3 t = new Vec3(-outward.z, 0.0D, outward.x);
+            double feetY = glass.getY() + 0.55D - v.headCenterY(scale);
+            Vec3 base = new Vec3(out.getX() + 0.5D - d.getStepX() * 0.40D, feetY, out.getZ() + 0.5D - d.getStepZ() * 0.40D);
+            boolean first = r.nextBoolean();
+            for (int i = 0; i < 2; i++) {
+                double sideSign = (i == 0) == first ? 1.0D : -1.0D;
+                double inFrame = 0.12D + r.nextDouble() * 0.26D; // cuanto se aleja del centro de la ventana
+                double hide = 1.3D;
+                Vec3 shown = base.add(t.scale(sideSign * inFrame));
+                Vec3 hidden = shown.add(t.scale(sideSign * hide));
+                Vec3 lean = t.scale(-sideSign);
+                if (HorrorUtil.visibleSamples(l, eye, p, hidden, 0.0D, h, w) > 1) continue;
+                Vec3 headShown = shown.add(lean.scale(off[0])).add(0.0D, off[1], 0.0D);
+                if (HorrorUtil.headSamples(l, eye, p, headShown, headHalf) < 1) continue;
+                Vec3 grip = new Vec3(gc.x + outward.x * 0.46D + t.x * sideSign * 0.5D, gc.y - 0.05D,
+                        gc.z + outward.z * 0.46D + t.z * sideSign * 0.5D);
+                return new CoverSpot(shown, lean, hide, grip, scale, true);
+            }
         }
         return null;
     }
 
-    /**
-     * Crea el asomo de cabeza. Cada aparicion entra desde una direccion distinta:
-     * izquierda, derecha, abajo o arriba. Todas las variantes usan su recorte facial propio.
-     */
-    static HorrorEntity spawnPeek(ServerPlayer p, ServerLevel l, PlayerState st, HorrorVariant v, Vec3 fin) {
-        RandomSource r = p.getRandom();
-        Vec3 toPlayer = new Vec3(p.getX() - fin.x, 0.0D, p.getZ() - fin.z);
-        if (toPlayer.lengthSqr() < 1.0E-4D) toPlayer = new Vec3(0.0D, 0.0D, 1.0D);
-        toPlayer = toPlayer.normalize();
-        Vec3 right = new Vec3(-toPlayer.z, 0.0D, toPlayer.x);
-        double amount = 0.48D + r.nextDouble() * 0.42D;
-        Vec3 startOffset;
-        float leanSide;
-        switch (r.nextInt(4)) {
-            case 0 -> { startOffset = right.scale(amount); leanSide = 1.0F; }
-            case 1 -> { startOffset = right.scale(-amount); leanSide = -1.0F; }
-            case 2 -> { startOffset = new Vec3(0.0D, -amount, 0.0D).add(right.scale((r.nextDouble() - 0.5D) * 0.22D)); leanSide = 1.0F; }
-            default -> { startOffset = new Vec3(0.0D, amount, 0.0D).add(right.scale((r.nextDouble() - 0.5D) * 0.22D)); leanSide = -1.0F; }
-        }
-
-        Vec3 start = fin.add(startOffset);
-        HorrorEntity e = spawn(p, l, st, v, HorrorMode.PEEK, start, 0, 1.0F);
-        if (e != null) {
-            // 2.8-5.2 segundos: el rostro aparece despacio y se queda observando.
-            e.setPeekAnim(fin.x, fin.y, fin.z, (float) startOffset.x, (float) startOffset.y,
-                    (float) startOffset.z, 56 + r.nextInt(49), leanSide);
-        }
-        return e;
-    }
-
-    /** Ventana de cristal: la cabeza sube lentamente desde debajo del alfeizar, al otro lado del vidrio. */
+    /** Ventana de cristal: algo se asoma desde detras del marco, al otro lado del vidrio. */
     private static boolean window(ServerPlayer p, ServerLevel l, PlayerState st) {
         boolean night = st.isNight(l);
         if (!canSpawnMore(p, l, night)) return false;
@@ -950,27 +922,9 @@ public final class HorrorEvents {
                 s -> s.getBlock() instanceof AbstractGlassBlock
                         || (s.getBlock() instanceof IronBarsBlock && !s.is(Blocks.IRON_BARS)), 3.0D);
         if (glass == null) return false;
-        RandomSource r = p.getRandom();
-        HorrorVariant v = pick(r, W_PEEK, st, night);
-        Vec3 pc = p.position();
-        Vec3 eye = p.getEyePosition();
-        double[] dm = peekDims(v);
-        for (Direction d : Direction.Plane.HORIZONTAL) {
-            BlockPos out = glass.relative(d);
-            BlockPos in = glass.relative(d.getOpposite());
-            if (!l.getBlockState(out).getCollisionShape(l, out).isEmpty()) continue;
-            if (!l.getBlockState(in).getCollisionShape(l, in).isEmpty()) continue;
-            if (Vec3.atCenterOf(in).distanceToSqr(pc) > Vec3.atCenterOf(out).distanceToSqr(pc)) continue; // el jugador esta dentro
-            double fy = glass.getY() + 0.5D - HorrorEntity.HEAD_CENTER;
-            Vec3 fin = new Vec3(out.getX() + 0.5D - d.getStepX() * 0.40D, fy, out.getZ() + 0.5D - d.getStepZ() * 0.40D);
-            if (HorrorUtil.visibleSamples(l, eye, p, fin, dm[0], dm[1], dm[2]) < 3) continue;
-            Vec3 start = fin.add(0.0D, -1.2D, 0.0D);
-            HorrorEntity e = spawn(p, l, st, v, HorrorMode.PEEK, start, 0, 1.0F);
-            if (e == null) return false;
-            e.setPeekAnim(fin.x, fin.y, fin.z, 0.0F, -1.2F, 0.0F, 100 + r.nextInt(80), 0.0F);
-            return true;
-        }
-        return false;
+        HorrorVariant v = pick(p.getRandom(), W_PEEK, st, night);
+        CoverSpot spot = windowSpot(p, l, v, glass);
+        return spot != null && spawnCoverPeek(p, l, st, v, spot) != null;
     }
 
     // ------------------------------------------------------------------ nuevos sucesos analogicos y de acecho
@@ -1043,9 +997,9 @@ public final class HorrorEvents {
                 int limit = st.isNight(lv) ? entityCap() : 1;
                 if (!pl.isAlive() || active(pl, lv) >= limit) return;
                 HorrorVariant v = pick(pl.getRandom(), W_PEEK, st, st.isNight(lv));
-                Vec3 peekPos = findPeek(pl, lv, v, 0.0D, 0.0D, 15, glass, 1.8D);
-                if (peekPos == null) peekPos = findAnyBlockPeek(pl, lv, v, 3.0D, 12.0D);
-                if (peekPos != null) spawnPeek(pl, lv, st, v, peekPos);
+                CoverSpot spot = windowSpot(pl, lv, v, glass);
+                if (spot == null) spot = findSpot(pl, lv, v, 3.0D, 12.0D);
+                if (spot != null) spawnCoverPeek(pl, lv, st, v, spot);
             });
         }
         return true;
@@ -1111,12 +1065,11 @@ public final class HorrorEvents {
         }
         RandomSource r = p.getRandom();
         HorrorVariant firstVariant = pick(r, W_PEEK, st, night);
-        Vec3 firstPos = findAnyBlockPeek(p, l, firstVariant, 4.0D, night ? 17.0D : 12.0D);
-        if (firstPos == null) firstPos = findPeek(p, l, firstVariant, 4.0D, 12.0D, 15, null, 0.0D);
-        if (firstPos == null) firstPos = HorrorUtil.forceDay ? forcedVisiblePosition(p, l, firstVariant) : null;
-        if (firstPos == null) return presenceCue(p, l, false);
-        final Vec3 firstPosition = firstPos;
-        HorrorEntity first = spawnPeek(p, l, st, firstVariant, firstPosition);
+        CoverSpot firstSpot = findSpot(p, l, firstVariant, 4.0D, night ? 17.0D : 12.0D);
+        if (firstSpot == null && HorrorUtil.forceDay) firstSpot = openSpot(p, l, firstVariant);
+        if (firstSpot == null) return presenceCue(p, l, false);
+        final Vec3 firstPosition = firstSpot.shown;
+        HorrorEntity first = spawnCoverPeek(p, l, st, firstVariant, firstSpot);
         if (first == null) return presenceCue(p, l, false);
         int delay = 76 + r.nextInt(55);
         st.schedule(delay, (pl, lv) -> {
@@ -1128,10 +1081,9 @@ public final class HorrorEvents {
                 return;
             }
             HorrorVariant secondVariant = pick(pl.getRandom(), W_PEEK, st, st.isNight(lv));
-            Vec3 secondPos = findAnyBlockPeek(pl, lv, secondVariant, 4.0D, 16.0D);
-            if (secondPos == null) secondPos = findPeek(pl, lv, secondVariant, 4.0D, 13.0D, 15, null, 0.0D);
-            if (secondPos != null && secondPos.distanceToSqr(firstPosition) > 25.0D) {
-                spawnPeek(pl, lv, st, secondVariant, secondPos);
+            CoverSpot secondSpot = findSpot(pl, lv, secondVariant, 4.0D, 16.0D);
+            if (secondSpot != null && secondSpot.shown.distanceToSqr(firstPosition) > 25.0D) {
+                spawnCoverPeek(pl, lv, st, secondVariant, secondSpot);
             } else {
                 // Si no cabe una segunda entidad, el segundo asomo se sugiere solo con audio.
                 HorrorUtil.sound(pl, ModSounds.WHISPER.get(), SoundSource.HOSTILE,
@@ -1228,11 +1180,10 @@ public final class HorrorEvents {
         final boolean forcedTest = HorrorUtil.forceDay;
         if (!canSpawnPeek(p, l, st.isNight(l))) return presenceCue(p, l, false);
         HorrorVariant v = pick(p.getRandom(), W_PEEK, st, st.isNight(l));
-        Vec3 pos = findAnyBlockPeek(p, l, v, 4.0D, 14.0D);
-        if (pos == null) pos = findPeek(p, l, v, 4.0D, 13.0D, 15, null, 0.0D);
-        if (pos == null && HorrorUtil.forceDay) pos = forcedVisiblePosition(p, l, v);
-        if (pos == null) return presenceCue(p, l, false);
-        HorrorEntity first = spawnPeek(p, l, st, v, pos);
+        CoverSpot spot = findSpot(p, l, v, 4.0D, 14.0D);
+        if (spot == null && HorrorUtil.forceDay) spot = openSpot(p, l, v);
+        if (spot == null) return presenceCue(p, l, false);
+        HorrorEntity first = spawnCoverPeek(p, l, st, v, spot);
         if (first == null) return presenceCue(p, l, false);
         st.schedule(130 + p.getRandom().nextInt(70), (pl, lv) -> {
             if (!pl.isAlive() || first.isRemoved() || !first.wasSeen()) return;
@@ -1243,12 +1194,9 @@ public final class HorrorEvents {
                 return;
             }
             HorrorVariant next = pick(pl.getRandom(), W_PEEK, st, st.isNight(lv));
-            Vec3 other = findAnyBlockPeek(pl, lv, next, 4.0D, 15.0D);
-            if (other == null || other.distanceToSqr(first.position()) < 36.0D) {
-                other = findPeek(pl, lv, next, 5.0D, 14.0D, 15, null, 0.0D);
-            }
-            if (other != null && other.distanceToSqr(first.position()) >= 16.0D) {
-                spawnPeek(pl, lv, st, next, other);
+            CoverSpot other = findSpot(pl, lv, next, 4.0D, 15.0D);
+            if (other != null && other.shown.distanceToSqr(first.position()) >= 16.0D) {
+                spawnCoverPeek(pl, lv, st, next, other);
             } else {
                 HorrorUtil.sound(pl, ModSounds.DISTANT_SOUND.get(), SoundSource.HOSTILE,
                         around(pl, 11.0D, 18.0D, false), 0.40F, 0.72F);

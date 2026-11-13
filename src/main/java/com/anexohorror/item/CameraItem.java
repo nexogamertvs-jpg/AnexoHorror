@@ -134,7 +134,9 @@ public class CameraItem extends Item {
             double h = he.spriteHeight();
             Vec3 base = he.position();
             if (he.getMode() == HorrorMode.PEEK) {
-                return new Vec3[]{base.add(0.0D, hover + HorrorEntity.HEAD_CENTER, 0.0D)};
+                // solo cuenta mientras la cabeza esta realmente asomada
+                if (he.isPeekGone() || he.getPeekProgress() < 0.25F) return new Vec3[0];
+                return new Vec3[]{he.headWorldPoint(he.getPeekProgress())};
             }
             return new Vec3[]{
                     base.add(0.0D, hover + h * 0.6D, 0.0D),

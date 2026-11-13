@@ -78,6 +78,22 @@ public final class HorrorUtil {
         return c;
     }
 
+    /** Cuantos de 3 puntos horizontales de la cabeza (0..3) ve el ojo del jugador. */
+    public static int headSamples(ServerLevel l, Vec3 eye, Entity ctx, Vec3 head, double halfWidth) {
+        Vec3 f = new Vec3(head.x - eye.x, 0.0D, head.z - eye.z);
+        if (f.lengthSqr() < 1.0E-4D) return 3;
+        f = f.normalize();
+        Vec3 right = new Vec3(-f.z, 0.0D, f.x);
+        int c = 0;
+        for (double o : new double[]{-1.0D, 0.0D, 1.0D}) {
+            Vec3 t = head.add(right.scale(o * halfWidth));
+            BlockHitResult r = l.clip(new ClipContext(eye, t, ClipContext.Block.VISUAL,
+                    ClipContext.Fluid.NONE, ctx));
+            if (r.getType() == HitResult.Type.MISS) c++;
+        }
+        return c;
+    }
+
     /** Envia un sonido posicional solo a este jugador (nadie mas lo oye). */
     public static void sound(ServerPlayer p, SoundEvent ev, SoundSource src, Vec3 pos, float vol, float pitch) {
         Holder<SoundEvent> holder = ForgeRegistries.SOUND_EVENTS.getHolder(ev).map(h -> (Holder<SoundEvent>) h)

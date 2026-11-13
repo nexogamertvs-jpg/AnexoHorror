@@ -178,3 +178,12 @@ El sistema es por jugador y usa un orden aleatorio sin repetir eventos comunes h
 - Visor analógico (esquinas, REC, estado del flash) mientras la cámara está en la mano, en primera persona.
 - Archivos nuevos: `almanac/AlmanacEntry`, `almanac/Almanac`, `item/CameraItem`, `client/CameraFlash`, `client/AlmanacScreen`; paquetes reutilizan `ClientEffectPacket` (kinds 8 y 9). Texturas en `textures/item/camera.png` y `textures/gui/almanac/`.
 - Pendiente: compilar con ForgeGradle y probar en el juego.
+
+## Asomos reales (cobertura, cuerpo inclinado, puerta y mano)
+
+- Los asomos ya no son una cabeza que sube o baja: la figura entera se esconde tras un bloque real (tronco, esquina, pilar, marco de puerta o ventana) y se asoma inclinando el cuerpo hacia fuera, con la cabeza ladeada a tirones y una mano agarrada al borde. Se dibuja como una cinta deformable (`PeekPose`, `HorrorRenderer`), sin cambiar las texturas.
+- Mecánica: espera a que mires hacia allí, sale a pasos cortos con pausas, se congela si la miras, se esconde si la miras fijo o si dejas de mirarla, y se recoloca más cerca de ti (hasta 1-3 veces; el Stalker, más) mientras no la ves. Si te acercas demasiado, se esconde y desaparece.
+- Puerta: tras los golpes la puerta se abre y la figura queda enmarcada en el hueco (a escala para que la cabeza se vea dentro del marco); cuando está del todo asomada, el brazo se estira en 3D hasta ti, a tirones, con la mano creciendo al acercarse. La regla letal (1,65 bloques del extremo al terminar) no cambia.
+- Ventana: sale desde detrás de la pared junto al marco y deja medio rostro a la vista.
+- Nuevos archivos: `entity/PeekPose`, `director/CoverSpot`, `director/CoverFinder`. La cámara fotográfica solo registra un asomo mientras la cabeza está realmente fuera.
+- Pendiente: compilar con ForgeGradle y probar en el juego (ajustar `PeekPose.LEAN_DEG/TILT_DEG` si se quiere más o menos inclinación).

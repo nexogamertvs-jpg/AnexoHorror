@@ -1,6 +1,8 @@
 package com.anexohorror.entity;
 
 import com.anexohorror.HorrorConfig;
+import com.anexohorror.director.CoverFinder;
+import com.anexohorror.director.CoverSpot;
 import com.anexohorror.director.HorrorDirector;
 import com.anexohorror.director.HorrorUtil;
 import com.anexohorror.net.ClientEffectPacket;
@@ -28,6 +30,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import javax.annotation.Nullable;
 import java.util.UUID;
 
 /**
@@ -52,7 +55,26 @@ public class HorrorEntity extends Mob {
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_HAND_PROGRESS =
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    /** Amplitud (0.7..1.2) de la inclinacion y el ladeo de la cabeza en un asomo. */
     private static final EntityDataAccessor<Float> DATA_PEEK_LEAN =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_PEEK_PROGRESS =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_PEEK_GONE =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_LEAN_X =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_LEAN_Z =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_HIDE =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Boolean> DATA_GRIP =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_GRIP_X =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_GRIP_Y =
+            SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_GRIP_Z =
             SynchedEntityData.defineId(HorrorEntity.class, EntityDataSerializers.FLOAT);
 
     // Estado solo de servidor (la entidad no se guarda en disco: noSave()).
@@ -71,12 +93,16 @@ public class HorrorEntity extends Mob {
     private boolean visibleCache;
     private boolean allowDay;
 
-    // Animacion sincronizada: la cabeza se desliza desde el borde y se ladea ligeramente.
-    public static final float HEAD_CENTER = 1.55F;
-    private boolean peekAnim;
-    private double peekBx, peekBy, peekBz;
-    private float peekDx, peekDy, peekDz;
-    private int revealTicks = 1;
+    // Asomo real (PEEK): el servidor gobierna las fases y sincroniza peekProgress (0 oculto .. 1 asomado);
+    // el cliente deforma el sprite con ese valor (ver HorrorRenderer / PeekPose).
+    public static final float HEAD_CENTER = 1.55F; // historico: los asomos usan headWorldPoint()
+    private static final int PEEK_WAIT = 0, PEEK_OUT = 1, PEEK_HOLD = 2, PEEK_BACK = 3, PEEK_AWAY = 4, PEEK_SETTLE = 5;
+    private boolean peekReady, peekGaze, handQueued, retreatFast;
+    private int peekPhase, peekTimer, peekMinWait = 12, peekMaxWait = 160, outSteps = 5, stepTimer;
+    private int holdTicks, peeksLeft, relocDelay, relocFails, handHold, handQueueDuration, revealTicks = 60;
+    private float peekProgress, outTarget;
+    private VanishReason retreatReason = VanishReason.EXPIRED;
+    private float peekRender, peekRenderPrev; // suavizado solo de cliente
 
     // persecucion: 0 = no, 1 = mirada congelada, 2 = cazando
     private int huntPhase;
@@ -112,7 +138,16 @@ public class HorrorEntity extends Mob {
         this.entityData.define(DATA_HAND_Y, 0.0F);
         this.entityData.define(DATA_HAND_Z, 0.0F);
         this.entityData.define(DATA_HAND_PROGRESS, 0.0F);
-        this.entityData.define(DATA_PEEK_LEAN, 0.0F);
+        this.entityData.define(DATA_PEEK_LEAN, 1.0F);
+        this.entityData.define(DATA_PEEK_PROGRESS, 0.0F);
+        this.entityData.define(DATA_PEEK_GONE, false);
+        this.entityData.define(DATA_LEAN_X, 1.0F);
+        this.entityData.define(DATA_LEAN_Z, 0.0F);
+        this.entityData.define(DATA_HIDE, 0.0F);
+        this.entityData.define(DATA_GRIP, false);
+        this.entityData.define(DATA_GRIP_X, 0.0F);
+        this.entityData.define(DATA_GRIP_Y, 0.0F);
+        this.entityData.define(DATA_GRIP_Z, 0.0F);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -135,6 +170,7 @@ public class HorrorEntity extends Mob {
         this.glimpseDelay = glimpseDelay;
         this.vanishDist = vanishDist;
         this.chainLeft = chainLeft;
+        if (mode == HorrorMode.PEEK) this.entityData.set(DATA_PEEK_GONE, true); // no se dibuja hasta setPeekCover()
         this.setHealth(this.getMaxHealth());
     }
 
@@ -151,7 +187,7 @@ public class HorrorEntity extends Mob {
     public float getHandY() { return this.entityData.get(DATA_HAND_Y); }
     public float getHandZ() { return this.entityData.get(DATA_HAND_Z); }
     public float getHandProgress() { return this.entityData.get(DATA_HAND_PROGRESS); }
-    public float getPeekLean() { return this.entityData.get(DATA_PEEK_LEAN); }
+    public float getPeekAmp() { return this.entityData.get(DATA_PEEK_LEAN); }
 
     /** Inicia la mano. El extremo nunca se sincroniza a mas de 7 bloques del origen. */
     public void beginHandAttack(ServerPlayer target, int duration) {
@@ -183,21 +219,78 @@ public class HorrorEntity extends Mob {
 
     public float spriteHover() { return hoverOf(getVariant(), getMode(), getVisualScale()); }
 
-    /** Posicion final (bx,by,bz) y vector hacia donde esta oculta (dx,dy,dz); sale en reveal ticks. */
-    public void setPeekAnim(double bx, double by, double bz, float dx, float dy, float dz,
-                            int reveal, float leanSide) {
-        this.peekAnim = true;
-        this.peekBx = bx; this.peekBy = by; this.peekBz = bz;
-        this.peekDx = dx; this.peekDy = dy; this.peekDz = dz;
-        this.revealTicks = Math.max(1, reveal);
-        // Inclina hombros y cabeza hacia el hueco por donde entra la figura.
-        float side = Math.signum(leanSide);
-        if (side == 0.0F) side = this.random.nextBoolean() ? 1.0F : -1.0F;
-        float angle = side * (6.5F + this.random.nextFloat() * 5.5F);
-        this.entityData.set(DATA_PEEK_LEAN, angle);
+    // ------------------------------------------------------------------ asomo real (PEEK)
+
+    public float getPeekProgress() { return this.entityData.get(DATA_PEEK_PROGRESS); }
+    public boolean isPeekGone() { return this.entityData.get(DATA_PEEK_GONE); }
+    public float getLeanX() { return this.entityData.get(DATA_LEAN_X); }
+    public float getLeanZ() { return this.entityData.get(DATA_LEAN_Z); }
+    public float getHideDist() { return this.entityData.get(DATA_HIDE); }
+    public boolean hasGrip() { return this.entityData.get(DATA_GRIP); }
+    /** Punto de agarre relativo al origen de la entidad (ejes del mundo). */
+    public Vec3 getGripRel() {
+        return new Vec3(this.entityData.get(DATA_GRIP_X), this.entityData.get(DATA_GRIP_Y), this.entityData.get(DATA_GRIP_Z));
+    }
+    public int getRevealTicks() { return revealTicks; }
+    /** Progreso suavizado para dibujar (solo cliente). */
+    public float getRenderPeekProgress(float partial) { return Mth.lerp(partial, peekRenderPrev, peekRender); }
+
+    /** Centro de la cabeza en el mundo para un progreso dado (servidor y cliente). */
+    public Vec3 headWorldPoint(float e) {
+        float amp = getPeekAmp();
+        float[] off = PeekPose.headOffset(getVariant(), getVisualScale(),
+                PeekPose.leanRad(e, amp), PeekPose.tiltRad(e, amp, 1.0F));
+        double lateral = off[0] - getHideDist() * (1.0F - e);
+        return new Vec3(getX() + getLeanX() * lateral, getY() + spriteHover() + off[1], getZ() + getLeanZ() * lateral);
     }
 
-    public int getRevealTicks() { return revealTicks; }
+    private void applyCover(Vec3 lean, double hide, @Nullable Vec3 grip) {
+        double len = Math.sqrt(lean.x * lean.x + lean.z * lean.z);
+        float lx = len > 1.0E-4D ? (float) (lean.x / len) : 1.0F;
+        float lz = len > 1.0E-4D ? (float) (lean.z / len) : 0.0F;
+        this.entityData.set(DATA_LEAN_X, lx);
+        this.entityData.set(DATA_LEAN_Z, lz);
+        this.entityData.set(DATA_HIDE, (float) hide);
+        if (grip != null) {
+            Vec3 rel = grip.subtract(this.position());
+            this.entityData.set(DATA_GRIP_X, (float) rel.x);
+            this.entityData.set(DATA_GRIP_Y, (float) rel.y);
+            this.entityData.set(DATA_GRIP_Z, (float) rel.z);
+            this.entityData.set(DATA_GRIP, true);
+        } else {
+            this.entityData.set(DATA_GRIP, false);
+        }
+    }
+
+    /**
+     * Prepara el asomo tras una cobertura. La entidad debe estar ya colocada en la pose asomada.
+     * Empieza escondida; sale a pasos cuando el jugador mira hacia alli (si gaze), se queda observando,
+     * se esconde si la miran fijamente o si se aparta, y se recoloca mas cerca (cycles veces).
+     */
+    public void setPeekCover(Vec3 lean, double hide, @Nullable Vec3 grip, float amp, boolean gaze, int cycles) {
+        applyCover(lean, hide, grip);
+        this.entityData.set(DATA_PEEK_LEAN, amp);
+        this.peekGaze = gaze;
+        this.peeksLeft = Math.max(0, cycles);
+        this.peekReady = true;
+        this.peekPhase = PEEK_WAIT;
+        this.peekTimer = 0;
+        this.peekProgress = 0.0F;
+        this.peekMinWait = 10 + this.random.nextInt(20);
+        this.peekMaxWait = 150 + this.random.nextInt(60);
+        this.revealTicks = 40 + this.random.nextInt(35);
+        this.entityData.set(DATA_PEEK_PROGRESS, 0.0F);
+        this.entityData.set(DATA_PEEK_GONE, false);
+    }
+
+    /** Tras revelarse del todo y esperar holdTicks, extiende el brazo hacia el jugador. */
+    public void queueHandAttack(int holdTicks, int duration) {
+        this.handQueued = true;
+        this.handHold = holdTicks;
+        this.handQueueDuration = duration;
+        this.stareLimit = Math.max(this.stareLimit, 400); // no se esconde antes de alcanzar
+        this.grace = Math.max(this.grace, 200);
+    }
 
     /** Mirada congelada (lockTicks) y despues persecucion frenetica hasta alcanzar al jugador. */
     public void beginHunt(ServerPlayer target, int lockTicks) {
@@ -217,6 +310,11 @@ public class HorrorEntity extends Mob {
         super.tick();
         this.noPhysics = true;
         if (this.level().isClientSide) {
+            // suaviza el progreso del asomo: cada paso del servidor se ve como un deslizamiento corto
+            peekRenderPrev = peekRender;
+            float target = this.entityData.get(DATA_PEEK_PROGRESS);
+            peekRender += (target - peekRender) * 0.55F;
+            if (Math.abs(target - peekRender) < 0.002F) peekRender = target;
             return; // sin particulas alrededor: la unica luz propia de la presencia son sus ojos
         }
         if (!(this.level() instanceof ServerLevel sl)) return;
@@ -234,8 +332,13 @@ public class HorrorEntity extends Mob {
         }
         if (huntPhase != 0) { tickHunt(sl, p); return; }
         if (!allowDay && life % 20 == 0 && !HorrorUtil.isNightTime(sl)) { // amanece: se esfuma
-            vanish(VanishReason.EXPIRED);
-            return;
+            if (getMode() == HorrorMode.PEEK && peekReady) {
+                peeksLeft = 0;
+                beginRetreat(p, VanishReason.EXPIRED); // los asomos se esconden en vez de desaparecer a la vista
+            } else {
+                vanish(VanishReason.EXPIRED);
+                return;
+            }
         }
 
         // Siempre orientada hacia el jugador (el render ademas hace billboard).
@@ -245,12 +348,7 @@ public class HorrorEntity extends Mob {
         this.setYRot(yaw);
         this.setYHeadRot(yaw);
 
-        if (peekAnim) { // sale despacio desde detras del obstaculo (ease in-out)
-            float t = Mth.clamp((life - 8) / (float) revealTicks, 0.0F, 1.0F);
-            float e = t * t * (3.0F - 2.0F * t);
-            float k = 1.0F - e;
-            this.setPos(peekBx + peekDx * k, peekBy + peekDy * k, peekBz + peekDz * k);
-        }
+        if (getMode() == HorrorMode.PEEK) { tickPeek(sl, p); return; }
 
         double dist = Math.sqrt(dx * dx + dz * dz);
         if (dist < vanishDist) { vanish(VanishReason.TOO_CLOSE); return; }
@@ -262,12 +360,6 @@ public class HorrorEntity extends Mob {
         float sampleHeight = h;
         float sampleWidth = spriteWidth();
         double centerOffset = sampleHover + h * 0.6D;
-        if (getMode() == HorrorMode.PEEK) {
-            sampleHeight = h * (getVariant().headV1 - getVariant().headV0);
-            sampleWidth = spriteWidth() * (getVariant().headU1 - getVariant().headU0);
-            sampleHover = spriteHover() + HEAD_CENTER - sampleHeight * 0.5F;
-            centerOffset = spriteHover() + HEAD_CENTER;
-        }
         Vec3 center = new Vec3(getX(), getY() + centerOffset, getZ());
         double cos = p.getLookAngle().dot(center.subtract(eye).normalize());
 
@@ -310,6 +402,170 @@ public class HorrorEntity extends Mob {
         } else if (hasBeenSeen) {
             if (++unseenTicks > grace) vanish(VanishReason.LOOKED_AWAY);
         }
+    }
+
+    // ------------------------------------------------------------------ fases del asomo
+
+    private void tickPeek(ServerLevel sl, ServerPlayer p) {
+        if (!peekReady) { // sin cobertura asignada no hay asomo posible
+            if (life > 60) vanish(VanishReason.EXPIRED);
+            return;
+        }
+        Vec3 eye = p.getEyePosition();
+        double dx = p.getX() - getX();
+        double dz = p.getZ() - getZ();
+        double dist = Math.sqrt(dx * dx + dz * dz);
+
+        // ¿Mira el jugador la cabeza asomada?
+        boolean inView = false;
+        if (peekPhase != PEEK_AWAY && peekPhase != PEEK_SETTLE) {
+            Vec3 head = headWorldPoint(peekProgress);
+            Vec3 to = head.subtract(eye);
+            double len = to.length();
+            double cos = len > 1.0E-4D ? p.getLookAngle().dot(to.scale(1.0D / len)) : 1.0D;
+            if (life % 2 == 0) {
+                visibleCache = HorrorUtil.headSamples(sl, eye, p, head,
+                        Math.max(0.12D, getVariant().headWidth(getVisualScale()) * 0.3D)) >= 2;
+            }
+            inView = cos > 0.74D && visibleCache && peekProgress > 0.15F;
+        }
+        if (inView) {
+            hasBeenSeen = true;
+            unseenTicks = 0;
+            seenTicks++;
+        } else if (hasBeenSeen) {
+            unseenTicks++;
+        }
+
+        if (peekPhase == PEEK_WAIT) {
+            peekTimer++;
+            if (dist < vanishDist) { vanish(VanishReason.TOO_CLOSE); return; }
+            if (life > maxLife) { vanish(VanishReason.EXPIRED); return; }
+            boolean go = peekTimer >= peekMinWait;
+            if (go && peekGaze && peekTimer < peekMaxWait) {
+                // espera a que el jugador mire hacia alli: asi el movimiento se nota
+                Vec3 to = headWorldPoint(1.0F).subtract(eye);
+                double len = to.length();
+                go = len < 1.0E-4D || p.getLookAngle().dot(to.scale(1.0D / len)) > 0.28D;
+            }
+            if (go) {
+                peekPhase = PEEK_OUT;
+                outSteps = 4 + this.random.nextInt(3);
+                outTarget = 0.0F;
+                stepTimer = 0;
+                scrape(p, 0.45F);
+            }
+            return;
+        }
+
+        if (peekPhase == PEEK_OUT || peekPhase == PEEK_HOLD) {
+            if (dist < vanishDist) { beginRetreat(p, VanishReason.TOO_CLOSE); return; }
+            if (life > maxLife) { beginRetreat(p, VanishReason.EXPIRED); return; }
+            if (seenTicks > stareLimit) { beginRetreat(p, VanishReason.STARE_DONE); return; }
+            if (hasBeenSeen && unseenTicks > grace + 6 && peekProgress > 0.3F) {
+                beginRetreat(p, VanishReason.LOOKED_AWAY);
+                return;
+            }
+        }
+
+        if (peekPhase == PEEK_OUT) {
+            // sale a pasos cortos con pausas; si lo miran, se queda congelado
+            if (!inView && --stepTimer <= 0) {
+                outTarget = Math.min(1.0F, outTarget + (1.0F / outSteps) * (0.7F + this.random.nextFloat() * 0.7F));
+                stepTimer = 3 + this.random.nextInt(7);
+            }
+            peekProgress += (outTarget - peekProgress) * 0.4F;
+            if (outTarget >= 1.0F && peekProgress > 0.985F) {
+                peekProgress = 1.0F;
+                peekPhase = PEEK_HOLD;
+                holdTicks = 0;
+            }
+            this.entityData.set(DATA_PEEK_PROGRESS, peekProgress);
+            return;
+        }
+
+        if (peekPhase == PEEK_HOLD) {
+            holdTicks++;
+            if (handQueued && holdTicks >= handHold) {
+                handQueued = false;
+                if (p.position().distanceTo(this.position()) <= 7.0D) {
+                    beginHandAttack(p, handQueueDuration);
+                    HorrorUtil.sound(p, ModSounds.DISTANT_SOUND.get(), SoundSource.HOSTILE,
+                            this.position(), 0.95F, 0.82F + this.random.nextFloat() * 0.18F);
+                }
+            }
+            return;
+        }
+
+        if (peekPhase == PEEK_BACK) {
+            peekProgress = Math.max(0.0F, peekProgress - (retreatFast ? 0.34F : 0.17F));
+            this.entityData.set(DATA_PEEK_PROGRESS, peekProgress);
+            if (peekProgress <= 0.0F) finishRetreat();
+            return;
+        }
+
+        if (peekPhase == PEEK_AWAY) { // escondida: espera y se recoloca mas cerca del jugador
+            if (peeksLeft <= 0 || life > maxLife) { vanish(retreatReason); return; }
+            if (++peekTimer < relocDelay) return;
+            double minD = Math.max(vanishDist + 2.0D, 4.5D);
+            double hi = dist - 1.0D;
+            if (hi < minD + 0.5D) { vanish(retreatReason); return; }
+            CoverSpot spot = CoverFinder.find(p, sl, getVariant(), getVisualScale(), minD, hi, 15, 90);
+            if (spot == null) {
+                if (++relocFails > 5) vanish(retreatReason);
+                else peekTimer = relocDelay - 20;
+                return;
+            }
+            this.moveTo(spot.shown.x, spot.shown.y, spot.shown.z, this.getYRot(), 0.0F);
+            applyCover(spot.lean, spot.hide, spot.grip);
+            peekProgress = 0.0F;
+            this.entityData.set(DATA_PEEK_PROGRESS, 0.0F);
+            peeksLeft--;
+            seenTicks = 0;
+            unseenTicks = 0;
+            hasBeenSeen = false;
+            visibleCache = false;
+            peekPhase = PEEK_SETTLE;
+            peekTimer = 0;
+            return;
+        }
+
+        if (peekPhase == PEEK_SETTLE) { // invisible unos ticks para que el cliente asiente la posicion
+            if (++peekTimer >= 5) {
+                this.entityData.set(DATA_PEEK_GONE, false);
+                peekPhase = PEEK_WAIT;
+                peekTimer = 0;
+                peekMinWait = 8 + this.random.nextInt(16);
+                peekMaxWait = 150;
+            }
+        }
+    }
+
+    private void beginRetreat(ServerPlayer p, VanishReason reason) {
+        if (peekPhase == PEEK_BACK || peekPhase == PEEK_AWAY || peekPhase == PEEK_SETTLE) return;
+        retreatReason = reason;
+        retreatFast = reason == VanishReason.TOO_CLOSE;
+        peekPhase = PEEK_BACK;
+        if (!retreatFast) scrape(p, 0.35F);
+    }
+
+    private void finishRetreat() {
+        peekProgress = 0.0F;
+        if (retreatReason == VanishReason.TOO_CLOSE || retreatReason == VanishReason.EXPIRED || peeksLeft <= 0) {
+            vanish(retreatReason);
+            return;
+        }
+        peekPhase = PEEK_AWAY;
+        peekTimer = 0;
+        relocDelay = 25 + this.random.nextInt(60);
+        relocFails = 0;
+        this.entityData.set(DATA_PEEK_GONE, true);
+    }
+
+    /** Arañazo de garras sobre el borde: aviso sonoro de que algo se agarra o se suelta. */
+    private void scrape(ServerPlayer p, float volume) {
+        HorrorUtil.sound(p, ModSounds.SCRAPE.get(), SoundSource.HOSTILE, this.position(),
+                volume, 0.8F + this.random.nextFloat() * 0.3F);
     }
 
     /** Avance discreto solo cuando el jugador no lo mira; nunca atraviesa bloques. */
@@ -443,13 +699,15 @@ public class HorrorEntity extends Mob {
     }
 
     @Override public boolean isPushable() { return false; }
-    @Override public boolean isPickable() { return true; }
+    @Override public boolean isPickable() { return !isPeekGone(); }
     @Override public boolean canBeCollidedWith() { return true; }
     @Override public void push(Entity entity) { }
     @Override public boolean shouldShowName() { return false; }
 
     @Override
     public AABB getBoundingBoxForCulling() {
-        return new AABB(getX() - 1.6D, getY() - 0.5D, getZ() - 1.6D, getX() + 1.6D, getY() + 3.6D, getZ() + 1.6D);
+        double r = getMode() == HorrorMode.PEEK ? 2.6D : 1.6D;
+        AABB box = new AABB(getX() - r, getY() - 0.5D, getZ() - r, getX() + r, getY() + 3.6D, getZ() + r);
+        return hasHandAttack() ? box.inflate(8.0D) : box; // el brazo estirado llega a siete bloques
     }
 }

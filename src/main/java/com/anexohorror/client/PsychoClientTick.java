@@ -91,15 +91,16 @@ public final class PsychoClientTick {
         for (Entity en : mc.level.entitiesForRendering()) {
             if (!(en instanceof HorrorEntity he)) continue;
             if (he.getMode() == HorrorMode.PERIPHERAL) continue;
-            double targetY = he.getMode() == HorrorMode.PEEK
-                    ? he.spriteHover() + HorrorEntity.HEAD_CENTER
-                    : he.spriteHover() + he.spriteHeight() * 0.6D;
-            Vec3 to = he.position().add(0.0D, targetY, 0.0D).subtract(eye);
+            boolean peeking = he.getMode() == HorrorMode.PEEK;
+            if (peeking && (he.isPeekGone() || he.getPeekProgress() < 0.15F)) continue; // aun escondida
+            Vec3 to = peeking
+                    ? he.headWorldPoint(he.getPeekProgress()).subtract(eye)
+                    : he.position().add(0.0D, he.spriteHover() + he.spriteHeight() * 0.6D, 0.0D).subtract(eye);
             double d = to.length();
             if (d > 64.0D || d < 0.5D) continue;
             if (he.getMode() == HorrorMode.HUNT) hunt = Math.max(hunt, (float) (1.0D - d / 45.0D)); // te persigue: el miedo sube aunque no mires
             double dot = look.dot(to.scale(1.0D / d));
-            if (dot < 0.6D || !p.hasLineOfSight(he)) continue;
+            if (dot < 0.6D || (!peeking && !p.hasLineOfSight(he))) continue;
             float prox = (float) (1.0D - d / 64.0D);
             float strength = (float) ((dot - 0.6D) / 0.4D) * (0.35F + 0.65F * prox);
             best = Math.max(best, strength);
